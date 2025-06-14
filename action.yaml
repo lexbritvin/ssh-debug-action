@@ -91,10 +91,16 @@ runs:
         
         echo "ssh -J $SSH_JUMP -p $SSH_PORT $SSH_LOGIN -t \"$SSH_SCRIPT\""
 
-    - name: 📄 Wait for Finish
-      uses: lexbritvin/wait-for-action@main
+    - name: 🛠 Set up tmate session 🛠
+      id: tmate
+      uses: mxschmitt/action-tmate@v3
       with:
-        condition-type: 'file'
-        file-path: './finish-debug'
-        timeout-seconds: 1800
-        poll-interval-seconds: '60'
+        limit-access-to-actor: true
+
+#    - name: 📄 Wait for Finish
+#      uses: lexbritvin/wait-for-action@main
+#      with:
+#        condition-type: 'file'
+#        file-path: './finish-debug'
+#        timeout-seconds: 1800
+#        poll-interval-seconds: '60'
