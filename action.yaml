@@ -59,12 +59,11 @@ runs:
         authorized-keys: ${{ inputs.ssh-authorized-keys }}
         use-actor-ssh-keys: ${{ inputs.use-actor-ssh-keys }}
 
-    # TODO: Prepare user and host.
     - name: Prepare jump host
       id: jump-info
       shell: bash
       run: |
-        JUMP_USER="gh-${{ github.run_id }}"
+        JUMP_USER="github-runner-${{ github.run_id }}-$RANDOM"
         echo "username=$JUMP_USER" >> $GITHUB_OUTPUT
         echo "remote-forwards=$JUMP_USER:${{ steps.sshd.outputs.port }}:${{ steps.sshd.outputs.hostname }}:${{ steps.sshd.outputs.port }}" >> $GITHUB_OUTPUT
         echo "hostname=$JUMP_USER" >> $GITHUB_OUTPUT
@@ -82,7 +81,7 @@ runs:
     - name: Output connection information
       shell: bash
       run: |
-        JUMP_STRING="${{ steps.jump-info.outputs.username }}@${{ inputs.ssh-jump-host }}:${{ inputs.ssh-jump-port }}"
+        SSH_JUMP="${{ steps.jump-info.outputs.username }}@${{ inputs.ssh-jump-host }}:${{ inputs.ssh-jump-port }}"
         SSH_LOGIN="${{ steps.sshd.outputs.username }}@${{ steps.jump-info.outputs.hostname }}"
         SSH_PORT="${{ steps.sshd.outputs.port }}"
         SSH_SCRIPT="cd $PWD && exec \\\$SHELL -l"
@@ -90,7 +89,7 @@ runs:
           export SSH_SCRIPT="cd $(cygpath -w "$PWD" 2>/dev/null || echo "$PWD") && cmd"
         fi
         
-        echo "ssh -J $JUMP_STRING -p $SSH_PORT $SSH_LOGIN -t \"$SSH_SCRIPT\""
+        echo "ssh -J $SSH_JUMP -p $SSH_PORT $SSH_LOGIN -t \"$SSH_SCRIPT\""
 
     - name: 📄 Wait for Finish
       uses: lexbritvin/wait-for-action@main
