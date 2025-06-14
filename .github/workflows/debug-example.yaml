@@ -1,0 +1,74 @@
+name: Debug Workflow Example
+
+on:
+  workflow_dispatch:
+    inputs:
+      os:
+        description: 'Debug with SSH in OS'
+        required: false
+        type: choice
+        options:
+          - 'ubuntu-latest'
+          - 'macos-latest'
+          - 'windows-latest'
+
+env:
+  SSH_JUMP_HOST: ssh-j.com
+  SSH_JUMP_PORT: '22'
+  SSH_JUMP_USER: ':generate'
+  SSH_JUMP_FORWARD: ':generate'
+  SSH_JUMP_HOST_KEYS: |
+    ssh-j.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIiyFQuTwegicQ+8w7dLA7A+4JMZkCk8TLWrKPklWcRt
+
+jobs:
+  debug:
+    name: SSH Debug Session
+    runs-on: ${{ inputs.os }}
+    steps:
+      - name: Run SSH Debug Session
+        id: ssh-session
+        uses: lexbritvin/ssh-session-action@main
+        with:
+          ssh-jump-host: ${{ env.SSH_JUMP_HOST }}
+          ssh-jump-port: ${{ env.SSH_JUMP_PORT }}
+          ssh-jump-user: ${{ env.SSH_JUMP_USER }}
+          ssh-jump-host-keys: ${{ env.SSH_JUMP_HOST_KEYS }}
+          ssh-jump-forward: ${{ env.SSH_JUMP_FORWARD }}
+          use-actor-ssh-keys: 'true'
+          detached: 'true'
+
+      - name: 👉 How to connect 👈
+        env:
+          HELP_MESSAGE: ${{ steps.ssh-session.outputs.help-message }}
+          EXTRA_HELP: |
+            ╔══════════════════════════════════════════════════════════════════════════════════════════╗
+            ║                              🐛 GO DEBUGGING WITH DELVE                                  ║
+            ╚══════════════════════════════════════════════════════════════════════════════════════════╝
+            
+            \033[1;32m┌─ 🔄 PORT FORWARDING FOR DELVE\033[0m
+            \033[1;32m│\033[0m   \033[1mssh -L 2345:localhost:2345 ...\033[0m
+            \033[1;32m└─\033[0m
+            
+            \033[1;33m┌─ 🛠️  DEBUG COMMANDS\033[0m
+            \033[1;33m│\033[0m   \033[1;35mRun all tests:\033[0m
+            \033[1;33m│\033[0m     \033[1mgo test ./...\033[0m
+            \033[1;33m│\033[0m   \033[1;35mRun specific test:\033[0m
+            \033[1;33m│\033[0m     \033[1mgo test -v -run TestFooBar ./...\033[0m
+            \033[1;33m│\033[0m   \033[1;35mDebug specific test:\033[0m
+            \033[1;33m│\033[0m     \033[1mdlv --listen=:2345 --headless --api-version=2 test ./... -- -test.run TestFooBar\033[0m
+            \033[1;33m│\033[0m   \033[1;35mDebug application:\033[0m
+            \033[1;33m│\033[0m     \033[1mdlv debug --headless --listen=:2345 --api-version=2 ./cmd/foo -- [args...]\033[0m
+            \033[1;33m└─\033[0m
+            
+            \033[1;34m┌─ 🔗 IDE INTEGRATION\033[0m
+            \033[1;34m│\033[0m   \033[1;36mConnect to Delve on port 2345:\033[0m
+            \033[1;34m│\033[0m   \033[1;36m•\033[0m \033[1;35mVS Code:\033[0m https://github.com/golang/vscode-go/blob/master/docs/debugging.md
+            \033[1;34m│\033[0m   \033[1;36m•\033[0m \033[1;35mGoLand/IntelliJ:\033[0m https://www.jetbrains.com/help/go/attach-to-running-go-processes-with-debugger.html#attach-to-a-process-on-a-remote-machine
+            \033[1;34m└─\033[0m
+            
+            \033[1;36m📚 Delve Documentation:\033[0m https://github.com/go-delve/delve/tree/master/Documentation
+        run: |
+          echo "SSH Debug Session Started!"
+          # The help-message output contains ANSI color codes (\033[1;32m etc.)
+          # Use printf to properly display colored output
+          printf "%b\n%b\n" "$HELP_MESSAGE" "$EXTRA_HELP"
