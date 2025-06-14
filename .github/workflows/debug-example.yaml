@@ -1,4 +1,4 @@
-name: Docker Workflow Example
+name: Debug Workflow Example
 
 on:
   push:

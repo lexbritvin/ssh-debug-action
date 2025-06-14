@@ -60,7 +60,7 @@ runs:
       shell: bash
       run: |
         JUMP_USER="gh-${{ github.run_id }}"
-        echo "username=$JUMP_USER"
+        echo "username=$JUMP_USER" >> $GITHUB_OUTPUT
         echo "remote-forwards=$JUMP_USER:${{ steps.sshd.outputs.port }}:${{ steps.sshd.outputs.hostname }}:${{ steps.sshd.outputs.port }}" >> $GITHUB_OUTPUT
 
     - name: Establish SSH tunnel
