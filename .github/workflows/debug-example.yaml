@@ -1,0 +1,21 @@
+name: Docker Workflow Example
+
+on:
+  push:
+    branches: [ main ]
+
+env:
+  SSH_JUMP_SERVER: ssh-j.com
+  SSH_JUMP_HOST_KEY: |
+    ssh-j.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIiyFQuTwegicQ+8w7dLA7A+4JMZkCk8TLWrKPklWcRt
+
+jobs:
+  debug:
+    name: SSH Debug
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run SSH Debug
+        uses: lexbritvin/ssh-debug-action@main
+        with:
+          ssh-jump-host: ${{ env.SSH_JUMP_SERVER }}
+          ssh-jump-host-key: ${{ env.SSH_JUMP_HOST_KEY }}

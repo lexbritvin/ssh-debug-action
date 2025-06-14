@@ -1,0 +1,86 @@
+name: 'Cross-Platform SSH Server'
+description: 'Sets up an SSH server on Windows, Linux, or macOS with configurable keys and automatic cleanup'
+
+branding:
+  icon: 'server'
+  color: 'blue'
+
+inputs:
+  ssh-jump-user:
+    required: false
+    default: ''
+    description: ''
+
+  ssh-jump-host:
+    required: true
+    description: 'SSH jump host server for tunneling Docker daemon access'
+
+  ssh-jump-port:
+    required: false
+    default: '22'
+    description: 'SSH jump host port for tunneling Docker daemon access'
+
+  ssh-jump-host-key:
+    required: true
+    description: 'SSH host key for jump server verification (known_hosts format)'
+
+  ssh-user:
+    description: 'SSH username. Use :current to get the current user name (default: :current)'
+    required: false
+    default: ':current'
+
+  ssh-port:
+    description: 'SSH server port (default: 2222)'
+    required: false
+    default: '2222'
+
+  authorized-keys:
+    description: 'Authorized public keys (one per line)'
+    required: false
+
+  use-actor-ssh-keys:
+    description: 'Whether to authorize the public SSH keys of the user triggering the workflow'
+    required: false
+    default: 'true'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Configure SSH daemon
+      id: sshd
+      uses: lexbritvin/setup-sshd-action@main
+      with:
+        port: ${{ inputs.ssh-port }}
+        authorized-keys: ${{ inputs.ssh-authorized-keys }}
+        use-actor-ssh-keys: ${{ inputs.use-actor-ssh-keys }}
+
+    # TODO: Prepare user and host.
+    - name: Prepare jump host
+      id: jump-info
+      shell: bash
+      run: |
+        JUMP_USER="gh-${{ github.run_id }}"
+        echo "username=$JUMP_USER"
+        echo "remote-forwards=$JUMP_USER:${{ steps.sshd.outputs.port }}:${{ steps.sshd.outputs.hostname }}:${{ steps.sshd.outputs.port }}" >> $GITHUB_OUTPUT
+
+    - name: Establish SSH tunnel
+      id: sshd-tunnel
+      uses: lexbritvin/ssh-port-forward-action@main
+      with:
+        host: ${{ inputs.ssh-jump-host }}
+        username: "${{ steps.jump-info.outputs.username }}"
+        port: "${{ inputs.ssh-jump-port }}"
+        remote-forwards: "${{ steps.jump-info.outputs.remote-forwards }}"
+        known-hosts: ${{ inputs.ssh-jump-host-key }}
+
+    - name: Output connection information
+      shell: bash
+      run: |
+        echo "ssh -J ${{ steps.jump-info.outputs.username }}@${{ inputs.ssh-jump-host }}:${{ inputs.ssh-jump-port }} ${{ steps.sshd.outputs.username }}@${{ steps.sshd.outputs.hostname }}:${{ steps.sshd.outputs.port }}"
+
+    - name: 📄 Wait for Finish
+      uses: lexbritvin/wait-for-action@main
+      with:
+        condition-type: 'file'
+        file-path: './finish-debug'
+        timeout-seconds: 1800
