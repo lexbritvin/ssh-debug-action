@@ -8,7 +8,7 @@ branding:
 inputs:
   ssh-jump-user:
     required: false
-    default: ''
+    default: ':sish'
     description: ''
 
   ssh-jump-host:
@@ -19,6 +19,11 @@ inputs:
     required: false
     default: '22'
     description: 'SSH jump host port for tunneling Docker daemon access'
+
+  ssh-jump-private-key:
+    required: false
+    default: ''
+    description: ''
 
   ssh-jump-host-key:
     required: true
@@ -62,6 +67,7 @@ runs:
         JUMP_USER="gh-${{ github.run_id }}"
         echo "username=$JUMP_USER" >> $GITHUB_OUTPUT
         echo "remote-forwards=$JUMP_USER:${{ steps.sshd.outputs.port }}:${{ steps.sshd.outputs.hostname }}:${{ steps.sshd.outputs.port }}" >> $GITHUB_OUTPUT
+        echo "hostname=$JUMP_USER" >> $GITHUB_OUTPUT
 
     - name: Establish SSH tunnel
       id: sshd-tunnel
@@ -76,7 +82,15 @@ runs:
     - name: Output connection information
       shell: bash
       run: |
-        echo "ssh -J ${{ steps.jump-info.outputs.username }}@${{ inputs.ssh-jump-host }}:${{ inputs.ssh-jump-port }} ${{ steps.sshd.outputs.username }}@${{ steps.sshd.outputs.hostname }}:${{ steps.sshd.outputs.port }}"
+        JUMP_STRING="${{ steps.jump-info.outputs.username }}@${{ inputs.ssh-jump-host }}:${{ inputs.ssh-jump-port }}"
+        SSH_LOGIN="${{ steps.sshd.outputs.username }}@${{ steps.jump-info.outputs.hostname }}"
+        SSH_PORT="${{ steps.sshd.outputs.port }}"
+        SSH_SCRIPT="cd $PWD && exec \$SHELL -l"
+        if [[ "$RUNNER_OS" == "Windows" ]]; then
+          export SSH_SCRIPT="cd $(cygpath -w "$PWD" 2>/dev/null || echo "$PWD") && cmd"
+        fi
+        
+        echo "ssh -J $JUMP_STRING $SSH_PORT $SSH_LOGIN \"$SSH_SCRIPT\""
 
     - name: 📄 Wait for Finish
       uses: lexbritvin/wait-for-action@main
@@ -84,3 +98,4 @@ runs:
         condition-type: 'file'
         file-path: './finish-debug'
         timeout-seconds: 1800
+        poll-interval-seconds: '60'
