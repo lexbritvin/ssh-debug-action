@@ -100,34 +100,34 @@ runs:
       shell: bash
       env:
         DEBUG_INFO: |
-          [1;36m📝 Debug Session Information[0m
+          \033[1;36m📝 Debug Session Information\033[0m
           
-          [1;31m⚠️ IMPORTANT ⚠️[0m
-              - SSH access is limited to the keys provided in [1mauthorized-keys[0m 
-                and a GitHub user who started this debug session if [1muse-actor-ssh-keys[0m is given.
-              - Your GitHub account's SSH keys will be used for authentication if [1muse-actor-ssh-keys[0m is given.
+          \033[1;31m⚠️ IMPORTANT ⚠️\033[0m
+              - SSH access is limited to the keys provided in \033[1mauthorized-keys\033[0m 
+                and a GitHub user who started this debug session if \033[1muse-actor-ssh-keys\033[0m is given.
+              - Your GitHub account's SSH keys will be used for authentication if \033[1muse-actor-ssh-keys\033[0m is given.
               TODO - Session will automatically end after disconnect
               - Maximum session time is 30 minutes
               TODO - All changes are temporary and will be lost after session ends
           
-          [1;36m===============================================================[0m
+          \033[1;36m===============================================================\033[0m
           
-          [1;32m🔗 1. Connect with SSH:[0m
-                [1m${{ steps.tmate.outputs.ssh-command }}[0m
+          \033[1;32m🔗 1. Connect with SSH:\033[0m
+                \033[1m${{ steps.tmate.outputs.ssh-command }}\033[0m
           
-          [1;32m🔄 2. Forward a port:[0m
-                [1mssh -L 3000:localhost:8080 ${{ steps.tmate.outputs.ssh-address }}[0m
+          \033[1;32m🔄 2. Forward a port:\033[0m
+                \033[1mssh -L 3000:localhost:8080 ${{ steps.tmate.outputs.ssh-address }}\033[0m
           
-          [1;32m💻 3. Connect over SSH using VS Code for full developer experience[0m
+          \033[1;32m💻 3. Connect over SSH using VS Code for full developer experience\033[0m
                 - Open VS Code
                 - Install Remote SSH and Go extensions if not installed
                 - Select 'Remote-SSH: Connect to Host...'
                 - Enter the SSH command from step 1
                 VS Code on remote environment will allow you to forward any ports.
           
-          [1;32m🚀 Happy coding! 💻 🎉[0m
+          \033[1;32m🚀 Happy coding! 💻 🎉\033[0m
       run: |
-        printf '%s\n' "$DEBUG_INFO"
+        printf '%b\n' "$DEBUG_INFO"
 
 #    - name: 🛠 Set up tmate session 🛠
 #      id: tmate
