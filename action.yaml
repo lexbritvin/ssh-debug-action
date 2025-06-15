@@ -103,36 +103,36 @@ runs:
         
         {
           echo 'help-message<<EOF'
-          cat << EOF
-        \033[1;36m📝 Debug Session Information\033[0m
-        
-        \033[1;31m⚠️ IMPORTANT ⚠️\033[0m
-            - SSH access is limited to the keys provided in \033[1mauthorized-keys\033[0m 
-              and a GitHub user who started this debug session if \033[1muse-actor-ssh-keys\033[0m is given.
-            - Your GitHub account's SSH keys will be used for authentication if \033[1muse-actor-ssh-keys\033[0m is given.
-            TODO - Session will automatically end after disconnect
-            - Maximum session time is 30 minutes
-            TODO - All changes are temporary and will be lost after session ends
-        
-        \033[1;36m===============================================================\033[0m
-        
-        \033[1;32m🔗 1. Connect with SSH:\033[0m
-              \033[1m$SSH_BASE\033[0m
-              \033[1m$SSH_FULL\033[0m
-        
-        \033[1;32m🔄 2. Forward a port:\033[0m
-              \033[1mssh -L 3000:localhost:8080 $SSH_BASE\033[0m
-        
-        \033[1;32m💻 3. Connect over SSH using VS Code for full developer experience\033[0m
-              - Open VS Code
-              - Install Remote SSH extension if not installed
-              - Select 'Remote-SSH: Connect to Host...'
-              - Enter the SSH command from step 1
-              - Select the session to connect and open $WORKING_DIR
-              VS Code on remote environment will allow you to forward any ports.
-        
-        \033[1;32m🚀 Happy coding! 💻 🎉\033[0m
-        EOF
+          cat << HELP_EOF
+          \033[1;36m📝 Debug Session Information\033[0m
+          
+          \033[1;31m⚠️ IMPORTANT ⚠️\033[0m
+              - SSH access is limited to the keys provided in \033[1mauthorized-keys\033[0m 
+                and a GitHub user who started this debug session if \033[1muse-actor-ssh-keys\033[0m is given.
+              - Your GitHub account's SSH keys will be used for authentication if \033[1muse-actor-ssh-keys\033[0m is given.
+              TODO - Session will automatically end after disconnect
+              - Maximum session time is 30 minutes
+              TODO - All changes are temporary and will be lost after session ends
+          
+          \033[1;36m===============================================================\033[0m
+          
+          \033[1;32m🔗 1. Connect with SSH:\033[0m
+                \033[1m$SSH_BASE\033[0m
+                \033[1m$SSH_FULL\033[0m
+          
+          \033[1;32m🔄 2. Forward a port:\033[0m
+                \033[1mssh -L 3000:localhost:8080 $SSH_BASE\033[0m
+          
+          \033[1;32m💻 3. Connect over SSH using VS Code for full developer experience\033[0m
+                - Open VS Code
+                - Install Remote SSH extension if not installed
+                - Select 'Remote-SSH: Connect to Host...'
+                - Enter the SSH command from step 1
+                - Select the session to connect and open $WORKING_DIR
+                VS Code on remote environment will allow you to forward any ports.
+          
+          \033[1;32m🚀 Happy coding! 💻 🎉\033[0m
+          HELP_EOF
           echo 'EOF'
         } >> $GITHUB_OUTPUT
         
