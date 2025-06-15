@@ -63,6 +63,14 @@ inputs:
     required: false
     default: 'true'
 
+outputs:
+  ssh-command:
+    description: ''
+    value: ''
+  help-message:
+    description: ''
+    value: ''
+
 runs:
   using: 'composite'
   steps:
@@ -101,16 +109,10 @@ runs:
         SSH_JUMP="${{ steps.jump-info.outputs.username }}@${{ inputs.ssh-jump-host }}:${{ inputs.ssh-jump-port }}"
         SSH_LOGIN="${{ steps.sshd.outputs.username }}@${{ steps.jump-info.outputs.hostname }}"
         SSH_PORT="${{ steps.sshd.outputs.port }}"
-        SSH_SCRIPT="cd $PWD && exec \\\$SHELL -l"
-        WORKING_DIR="$PWD"
-        if [[ "$RUNNER_OS" == "Windows" ]]; then
-          WORKING_DIR="$(cygpath -w "$PWD" 2>/dev/null || echo "$PWD")"
-          export SSH_SCRIPT="powershell -Command \"Set-Location '$WORKING_DIR'; powershell\""
-        fi
+        WORKING_DIR="$(cygpath -w "$PWD" 2>/dev/null || echo "$PWD")"
         
         SSH_BASE="-J $SSH_JUMP -p $SSH_PORT $SSH_LOGIN"
-        SSH_SHORT="ssh $SSH_BASE"
-        SSH_FULL="$SSH_SHORT -t \"$SSH_SCRIPT\""
+        SSH_COMMAND="ssh $SSH_BASE"
         
         # Create a help message.
         {
@@ -118,18 +120,24 @@ runs:
           cat << HELP_EOF
         \033[1;36m📝 Debug Session Information\033[0m
         
-        \033[1;31m⚠️ IMPORTANT ⚠️\033[0m
+        \033[1;33m⚠️TO END SESSION: ⚠️\033[0m
+          * Create a file \033[1m${{ inputs.wait-for-file }}\033[0m
+          * \033[1mOR\033[0m Use \033[1mCancel workflow\033[0m in Github UI.
+        
+        \033[1;33m⚠️IMPORTANT ⚠️\033[0m
             - SSH access is limited to the keys provided in \033[1mauthorized-keys\033[0m 
               and a GitHub user who started this debug session if \033[1muse-actor-ssh-keys\033[0m is given.
             - Your GitHub account's SSH keys will be used for authentication if \033[1muse-actor-ssh-keys\033[0m is given.
-            - To finish a session, create a file \033[1${{ inputs.wait-for-file }}\033[0m or use \033[1Cancel workflow\033[0m in Github UI.
             - Maximum session time is 30 minutes
             - All changes are temporary and will be lost after session ends
         
-        \033[1;36m===============================================================\033[0m
+        \033[1;33mServer SSH host keys:\033[0m
+        ${{ steps.sshd.outputs.host-keys }}
+        
+        \033[1;36m======================================================================================================\033[0m
         
         \033[1;32m🔗 1. Connect with SSH:\033[0m
-              \033[1m$SSH_SHORT\033[0m
+              \033[1m$SSH_COMMAND\033[0m
               \033[1mcd "$WORKING_DIR"\033[0m
         
         \033[1;32m🔄 2. Forward a port:\033[0m
@@ -142,7 +150,6 @@ runs:
               - Enter the SSH command from step 1
               - Select the session to connect and open $WORKING_DIR
               VS Code on remote environment will allow you to forward any ports.
-        \033[1;32m💻 4. To finish session, create a file:\033[0m
               
         \033[1;32m🚀 Happy coding! 💻 🎉\033[0m
         HELP_EOF
