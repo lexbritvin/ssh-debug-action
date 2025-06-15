@@ -94,7 +94,7 @@ runs:
         SSH_PRIVATE_KEY: ${{ inputs.ssh-jump-private-key }}
         SSH_JUMP_USER: ${{ inputs.ssh-jump-user }}
       run: |
-        if [[ -z "SSH_JUMP_USER" ]]; then
+        if [[ -z "$SSH_JUMP_USER" ]]; then
           SSH_JUMP_USER="github-runner-${{ github.run_id }}-$RANDOM"
         fi
 
