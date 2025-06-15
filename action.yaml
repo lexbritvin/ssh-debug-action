@@ -98,9 +98,9 @@ runs:
           SSH_JUMP_USER="github-runner-${{ github.run_id }}-$RANDOM"
         fi
 
-        echo "username=$JUMP_USER" >> $GITHUB_OUTPUT
-        echo "remote-forwards=$JUMP_USER:${{ steps.sshd.outputs.port }}:${{ steps.sshd.outputs.hostname }}:${{ steps.sshd.outputs.port }}" >> $GITHUB_OUTPUT
-        echo "hostname=$JUMP_USER" >> $GITHUB_OUTPUT
+        echo "username=$SSH_JUMP_USER" >> $GITHUB_OUTPUT
+        echo "remote-forwards=$SSH_JUMP_USER:${{ steps.sshd.outputs.port }}:${{ steps.sshd.outputs.hostname }}:${{ steps.sshd.outputs.port }}" >> $GITHUB_OUTPUT
+        echo "hostname=$SSH_JUMP_USER" >> $GITHUB_OUTPUT
 
     - name: Establish SSH tunnel
       id: sshd-tunnel
