@@ -112,7 +112,6 @@ runs:
         private-key: ${{ inputs.ssh-jump-private-key }}
         private-key-path:  "${{ steps.jump-info.outputs.private-key-path }}"
         remote-forwards: "${{ steps.jump-info.outputs.remote-forwards }}"
-        extra-flags: "-vvv"
         known-hosts: ${{ inputs.ssh-jump-host-key }}
 
     - name: Output connection information
@@ -141,7 +140,7 @@ runs:
         SSH_COMMAND="$SSH_COMMAND $SSH_LOGIN"
         echo "ssh-command=$SSH_COMMAND" >> $GITHUB_OUTPUT
         
-        WORKING_DIR="$(cygpath -w "$PWD" 2>/dev/null || echo "$PWD")"
+        WORKING_DIR="$(cygpath -w "$(pwd)" 2>/dev/null || echo "$(pwd)")"
         TIMEOUT_MIN=$(( ${{ inputs.wait-timeout }} / 60 ))
 
         # Create a help message.
@@ -157,14 +156,14 @@ runs:
           • Create a file \033[1m${{ inputs.wait-for-file }}\033[0m
           • \033[1mOR\033[0m Use \033[1m"Cancel workflow"\033[0m in the GitHub UI
 
-        \033[1;33m⚠️ IMPORTANT NOTES\033[0m
+        \033[1;33m⚠️ IMPORTANT NOTES ⚠️\033[0m
           • SSH access is limited to keys provided in \033[1mauthorized-keys\033[0m
             and the GitHub user who started this debug session (if \033[1muse-actor-ssh-keys\033[0m is enabled)
           • Your GitHub account's SSH keys will be used for authentication when \033[1muse-actor-ssh-keys\033[0m is enabled
           • Maximum session time: \033[1m$TIMEOUT_MIN minutes\033[0m ⏰
           • All changes are temporary and will be lost when the session ends 🗑️
 
-        \033[1;33m🔑 Server SSH host keys:\033[0m
+        \033[1;35m🔑 Server SSH host keys\033[0m
         ${{ steps.sshd.outputs.host-keys }}
 
         \033[1;36m====================================================================================================\033[0m
@@ -187,7 +186,7 @@ runs:
         
             \033[1;35m💡 Tip:\033[0m VS Code's remote environment allows you to forward any ports easily.
         
-        \033[1;32m🚀 Happy coding! 💻 🎉\033[0m
+        \033[1;35m🚀 Happy coding! 💻 🎉\033[0m
         HELP_EOF
           echo 'EOF'
         } >> $GITHUB_OUTPUT
