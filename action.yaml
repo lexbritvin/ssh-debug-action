@@ -56,6 +56,11 @@ inputs:
 runs:
   using: 'composite'
   steps:
+    - name: Debug session
+      shell: bash
+      run: |
+        echo "::group::Preparing SSH debug environment"
+
     - name: Configure SSH daemon
       id: sshd
       uses: lexbritvin/setup-sshd-action@main
@@ -84,6 +89,7 @@ runs:
         known-hosts: ${{ inputs.ssh-jump-host-key }}
 
     - name: Output connection information
+      id: help-msg
       shell: bash
       run: |
         SSH_JUMP="${{ steps.jump-info.outputs.username }}@${{ inputs.ssh-jump-host }}:${{ inputs.ssh-jump-port }}"
@@ -94,46 +100,50 @@ runs:
           export SSH_SCRIPT="powershell -Command \"Set-Location '$(cygpath -w "$PWD" 2>/dev/null || echo "$PWD")'; powershell\""
         fi
         
-        echo "ssh -J $SSH_JUMP -p $SSH_PORT $SSH_LOGIN -t \"$SSH_SCRIPT\""
+        SSH_BASE="ssh -J $SSH_JUMP -p $SSH_PORT $SSH_LOGIN"
+        SSH_FULL="$SSH_BASE -t \"$SSH_SCRIPT\""
+        
+        echo 'help-message<<EOF' >> $GITHUB_OUTPUT
+        cat << EOF
+        \033[1;36m📝 Debug Session Information\033[0m
+        
+        \033[1;31m⚠️ IMPORTANT ⚠️\033[0m
+            - SSH access is limited to the keys provided in \033[1mauthorized-keys\033[0m 
+              and a GitHub user who started this debug session if \033[1muse-actor-ssh-keys\033[0m is given.
+            - Your GitHub account's SSH keys will be used for authentication if \033[1muse-actor-ssh-keys\033[0m is given.
+            TODO - Session will automatically end after disconnect
+            - Maximum session time is 30 minutes
+            TODO - All changes are temporary and will be lost after session ends
+        
+        \033[1;36m===============================================================\033[0m
+        
+        \033[1;32m🔗 1. Connect with SSH:\033[0m
+              \033[1m$SSH_BASE\033[0m
+              \033[1m$SSH_FULL\033[0m
+        
+        \033[1;32m🔄 2. Forward a port:\033[0m
+              \033[1mssh -L 3000:localhost:8080 ${{ steps.tmate.outputs.ssh-address }}\033[0m
+        
+        \033[1;32m💻 3. Connect over SSH using VS Code for full developer experience\033[0m
+              - Open VS Code
+              - Install Remote SSH extension if not installed
+              - Select 'Remote-SSH: Connect to Host...'
+              - Enter the SSH command from step 1
+              - Select the session to connect and open ${{ steps.tmate.working-dir }}
+              VS Code on remote environment will allow you to forward any ports.
+        
+        \033[1;32m🚀 Happy coding! 💻 🎉\033[0m
+        EOF
+        echo 'EOF' >> $GITHUB_OUTPUT
+        
+        echo "::endgroup::"
 
     - name: Connection info
       shell: bash
       env:
-        DEBUG_INFO: |
-          \033[1;36m📝 Debug Session Information\033[0m
-          
-          \033[1;31m⚠️ IMPORTANT ⚠️\033[0m
-              - SSH access is limited to the keys provided in \033[1mauthorized-keys\033[0m 
-                and a GitHub user who started this debug session if \033[1muse-actor-ssh-keys\033[0m is given.
-              - Your GitHub account's SSH keys will be used for authentication if \033[1muse-actor-ssh-keys\033[0m is given.
-              TODO - Session will automatically end after disconnect
-              - Maximum session time is 30 minutes
-              TODO - All changes are temporary and will be lost after session ends
-          
-          \033[1;36m===============================================================\033[0m
-          
-          \033[1;32m🔗 1. Connect with SSH:\033[0m
-                \033[1m${{ steps.tmate.outputs.ssh-command }}\033[0m
-          
-          \033[1;32m🔄 2. Forward a port:\033[0m
-                \033[1mssh -L 3000:localhost:8080 ${{ steps.tmate.outputs.ssh-address }}\033[0m
-          
-          \033[1;32m💻 3. Connect over SSH using VS Code for full developer experience\033[0m
-                - Open VS Code
-                - Install Remote SSH and Go extensions if not installed
-                - Select 'Remote-SSH: Connect to Host...'
-                - Enter the SSH command from step 1
-                VS Code on remote environment will allow you to forward any ports.
-          
-          \033[1;32m🚀 Happy coding! 💻 🎉\033[0m
+        HELP_MESSAGE: ${{ steps.help-msg.outputs.help-message }}
       run: |
-        printf '%b\n' "$DEBUG_INFO"
-
-#    - name: 🛠 Set up tmate session 🛠
-#      id: tmate
-#      uses: mxschmitt/action-tmate@v3
-#      with:
-#        limit-access-to-actor: true
+        printf '%b\n' "$HELP_MESSAGE"
 
     - name: 📄 Wait for Finish
       uses: lexbritvin/wait-for-action@main
