@@ -13,12 +13,12 @@ inputs:
 
   ssh-jump-host:
     required: true
-    description: 'SSH jump host server for tunneling Docker daemon access'
+    description: 'SSH jump host server for tunneling SSH server access'
 
   ssh-jump-port:
     required: false
     default: '22'
-    description: 'SSH jump host port for tunneling Docker daemon access'
+    description: 'SSH jump host port for tunneling SSH server access'
 
   ssh-jump-private-key:
     required: false
@@ -63,6 +63,11 @@ inputs:
     required: false
     default: 'true'
 
+  detached:
+    description: ''
+    required: false
+    default: 'false'
+
 outputs:
   ssh-command:
     description: ''
@@ -85,8 +90,14 @@ runs:
     - name: Prepare jump host
       id: jump-info
       shell: bash
+      env:
+        SSH_PRIVATE_KEY: ${{ inputs.ssh-jump-private-key }}
+        SSH_JUMP_USER: ${{ inputs.ssh-jump-user }}
       run: |
-        JUMP_USER="github-runner-${{ github.run_id }}-$RANDOM"
+        if [[ -z "SSH_JUMP_USER" ]]; then
+          SSH_JUMP_USER="github-runner-${{ github.run_id }}-$RANDOM"
+        fi
+
         echo "username=$JUMP_USER" >> $GITHUB_OUTPUT
         echo "remote-forwards=$JUMP_USER:${{ steps.sshd.outputs.port }}:${{ steps.sshd.outputs.hostname }}:${{ steps.sshd.outputs.port }}" >> $GITHUB_OUTPUT
         echo "hostname=$JUMP_USER" >> $GITHUB_OUTPUT
@@ -98,7 +109,10 @@ runs:
         host: ${{ inputs.ssh-jump-host }}
         username: "${{ steps.jump-info.outputs.username }}"
         port: "${{ inputs.ssh-jump-port }}"
+        private-key: ${{ inputs.ssh-jump-private-key }}
+        private-key-path:  "${{ steps.jump-info.outputs.private-key-path }}"
         remote-forwards: "${{ steps.jump-info.outputs.remote-forwards }}"
+        extra-flags: "-vvv"
         known-hosts: ${{ inputs.ssh-jump-host-key }}
 
     - name: Output connection information
@@ -111,7 +125,7 @@ runs:
         # Add jump host
         SSH_JUMP="${{ steps.jump-info.outputs.username }}@${{ inputs.ssh-jump-host }}:${{ inputs.ssh-jump-port }}"
         if [[ -n "$SSH_JUMP" ]]; then
-          SSH_COMMAND="$SSH_COMMAND -J SSH_JUMP"
+          SSH_COMMAND="$SSH_COMMAND -J $SSH_JUMP"
         fi
         
         # Add custom ssh port
@@ -128,45 +142,51 @@ runs:
         echo "ssh-command=$SSH_COMMAND" >> $GITHUB_OUTPUT
         
         WORKING_DIR="$(cygpath -w "$PWD" 2>/dev/null || echo "$PWD")"
-        
+        TIMEOUT_MIN=$(( ${{ inputs.wait-timeout }} / 60 ))
+
         # Create a help message.
         {
           echo 'help-message<<EOF'
           cat << HELP_EOF
-        \033[1;36m📝 Debug Session Information\033[0m
-        
-        \033[1;33m⚠️ TO END SESSION: ⚠️\033[0m
-          - Create a file \033[1m${{ inputs.wait-for-file }}\033[0m
-          - \033[1mOR\033[0m Use \033[1mCancel workflow\033[0m in Github UI.
-        
-        \033[1;33m⚠️ IMPORTANT ⚠️\033[0m
-          - SSH access is limited to the keys provided in \033[1mauthorized-keys\033[0m 
-            and a GitHub user who started this debug session if \033[1muse-actor-ssh-keys\033[0m is given.
-          - Your GitHub account's SSH keys will be used for authentication if \033[1muse-actor-ssh-keys\033[0m is given.
-          - Maximum session time is 30 minutes
-          - All changes are temporary and will be lost after session ends
-        
-        \033[1;33mServer SSH host keys:\033[0m
+        \033[1;36mDebug Session\033[0m
+
+            \033[1m$SSH_COMMAND\033[0m
+            \033[1mcd "$WORKING_DIR"\033[0m
+
+        \033[1;33m🛑 TO END SESSION 🛑\033[0m
+          • Create a file \033[1m${{ inputs.wait-for-file }}\033[0m
+          • \033[1mOR\033[0m Use \033[1m"Cancel workflow"\033[0m in the GitHub UI
+
+        \033[1;33m⚠️ IMPORTANT NOTES\033[0m
+          • SSH access is limited to keys provided in \033[1mauthorized-keys\033[0m
+            and the GitHub user who started this debug session (if \033[1muse-actor-ssh-keys\033[0m is enabled)
+          • Your GitHub account's SSH keys will be used for authentication when \033[1muse-actor-ssh-keys\033[0m is enabled
+          • Maximum session time: \033[1m$TIMEOUT_MIN minutes\033[0m ⏰
+          • All changes are temporary and will be lost when the session ends 🗑️
+
+        \033[1;33m🔑 Server SSH host keys:\033[0m
         ${{ steps.sshd.outputs.host-keys }}
-        
-        \033[1;36m======================================================================================================\033[0m
-        
+
+        \033[1;36m====================================================================================================\033[0m
+
         \033[1;32m🔗 1. Connect with SSH:\033[0m
-              \033[1m$SSH_COMMAND\033[0m
-              \033[1mcd "$WORKING_DIR"\033[0m
+
+            \033[1m$SSH_COMMAND\033[0m
+            \033[1mcd "$WORKING_DIR"\033[0m
         
         \033[1;32m🔄 2. Forward a port:\033[0m
-              \033[1m$SSH_COMMAND -L 3000:localhost:8080\033[0m
-        
-        \033[1;32m💻 3. Connect over SSH using VS Code for full developer experience\033[0m
-              - Open VS Code
-              - Install Remote SSH extension if not installed
-              - Select 'Remote-SSH: Connect to Host...'
-              - Enter the SSH command from step 1
-              - Select the session to connect and open $WORKING_DIR
 
-              VS Code on remote environment will allow you to forward any ports.
-              
+            \033[1m$SSH_COMMAND -L 3000:localhost:8080\033[0m
+        
+        \033[1;32m💻 3. Connect via VS Code for the full developer experience:\033[0m
+            • Open VS Code
+            • Install the Remote SSH extension (if not already installed)
+            • Select \033[1m"Remote-SSH: Connect to Host..."\033[0m
+            • Enter the SSH command from step 1
+            • Select the new session to connect and Open \033[1m$WORKING_DIR\033[0m
+        
+            \033[1;35m💡 Tip:\033[0m VS Code's remote environment allows you to forward any ports easily.
+        
         \033[1;32m🚀 Happy coding! 💻 🎉\033[0m
         HELP_EOF
           echo 'EOF'
@@ -187,4 +207,4 @@ runs:
         file-path: ${{ inputs.wait-for-file }}
         timeout-seconds: ${{ inputs.wait-timeout }}
         poll-interval-seconds: '60'
-        detached: true
+        detached: ${{ inputs.detached }}
