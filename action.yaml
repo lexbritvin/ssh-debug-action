@@ -56,11 +56,6 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Debug session
-      shell: bash
-      run: |
-        echo "::group::Preparing SSH debug environment"
-
     - name: Configure SSH daemon
       id: sshd
       uses: lexbritvin/setup-sshd-action@main
@@ -96,15 +91,19 @@ runs:
         SSH_LOGIN="${{ steps.sshd.outputs.username }}@${{ steps.jump-info.outputs.hostname }}"
         SSH_PORT="${{ steps.sshd.outputs.port }}"
         SSH_SCRIPT="cd $PWD && exec \\\$SHELL -l"
+        WORKING_DIR="$PWD"
         if [[ "$RUNNER_OS" == "Windows" ]]; then
-          export SSH_SCRIPT="powershell -Command \"Set-Location '$(cygpath -w "$PWD" 2>/dev/null || echo "$PWD")'; powershell\""
+          WORKING_DIR="$(cygpath -w "$PWD" 2>/dev/null || echo "$PWD")"
+          export SSH_SCRIPT="powershell -Command \"Set-Location '$WORKING_DIR'; powershell\""
         fi
         
-        SSH_BASE="ssh -J $SSH_JUMP -p $SSH_PORT $SSH_LOGIN"
-        SSH_FULL="$SSH_BASE -t \"$SSH_SCRIPT\""
+        SSH_BASE="-J $SSH_JUMP -p $SSH_PORT $SSH_LOGIN"
+        SSH_SHORT="ssh $SSH_BASE"
+        SSH_FULL="$SSH_SHORT -t \"$SSH_SCRIPT\""
         
-        echo 'help-message<<EOF' >> $GITHUB_OUTPUT
-        cat << EOF
+        {
+          echo 'help-message<<EOF'
+          cat << EOF
         \033[1;36m📝 Debug Session Information\033[0m
         
         \033[1;31m⚠️ IMPORTANT ⚠️\033[0m
@@ -122,21 +121,22 @@ runs:
               \033[1m$SSH_FULL\033[0m
         
         \033[1;32m🔄 2. Forward a port:\033[0m
-              \033[1mssh -L 3000:localhost:8080 ${{ steps.tmate.outputs.ssh-address }}\033[0m
+              \033[1mssh -L 3000:localhost:8080 $SSH_BASE\033[0m
         
         \033[1;32m💻 3. Connect over SSH using VS Code for full developer experience\033[0m
               - Open VS Code
               - Install Remote SSH extension if not installed
               - Select 'Remote-SSH: Connect to Host...'
               - Enter the SSH command from step 1
-              - Select the session to connect and open ${{ steps.tmate.working-dir }}
+              - Select the session to connect and open $WORKING_DIR
               VS Code on remote environment will allow you to forward any ports.
         
         \033[1;32m🚀 Happy coding! 💻 🎉\033[0m
         EOF
-        echo 'EOF' >> $GITHUB_OUTPUT
+          echo 'EOF'
+        } >> $GITHUB_OUTPUT
         
-        echo "::endgroup::"
+        echo 'help-message<<EOF' >> $GITHUB_OUTPUT
 
     - name: Connection info
       shell: bash
