@@ -140,7 +140,7 @@ runs:
         SSH_COMMAND="$SSH_COMMAND $SSH_LOGIN"
         echo "ssh-command=$SSH_COMMAND" >> $GITHUB_OUTPUT
         
-        WORKING_DIR="$(cygpath -w "$(pwd)" 2>/dev/null || echo "$(pwd)")"
+        WORKING_DIR="$(cygpath -w "$(pwd)" 2>/dev/null | sed 's/\\/\\\\/g' || echo "$(pwd)")"
         TIMEOUT_MIN=$(( ${{ inputs.wait-timeout }} / 60 ))
 
         # Create a help message.
@@ -160,8 +160,8 @@ runs:
           • SSH access is limited to keys provided in \033[1mauthorized-keys\033[0m
             and the GitHub user who started this debug session (if \033[1muse-actor-ssh-keys\033[0m is enabled)
           • Your GitHub account's SSH keys will be used for authentication when \033[1muse-actor-ssh-keys\033[0m is enabled
-          • Maximum session time: \033[1m$TIMEOUT_MIN minutes\033[0m ⏰
-          • All changes are temporary and will be lost when the session ends 🗑️
+          • Maximum session time: \033[1m$TIMEOUT_MIN minutes\033[0m
+          • All changes are temporary and will be lost when the session ends
 
         \033[1;35m🔑 Server SSH host keys\033[0m
         ${{ steps.sshd.outputs.host-keys }}
