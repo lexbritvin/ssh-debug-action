@@ -48,10 +48,20 @@ inputs:
     required: false
     default: 'true'
 
+  wait-for-file:
+    description: ''
+    required: true
+    default: './finish-debug'
+
   wait-timeout:
     description: ''
     required: false
     default: '1800'
+
+  display-help-message:
+    description: ''
+    required: false
+    default: 'true'
 
 runs:
   using: 'composite'
@@ -87,6 +97,7 @@ runs:
       id: help-msg
       shell: bash
       run: |
+        # Prepare SSH connection details.
         SSH_JUMP="${{ steps.jump-info.outputs.username }}@${{ inputs.ssh-jump-host }}:${{ inputs.ssh-jump-port }}"
         SSH_LOGIN="${{ steps.sshd.outputs.username }}@${{ steps.jump-info.outputs.hostname }}"
         SSH_PORT="${{ steps.sshd.outputs.port }}"
@@ -101,6 +112,7 @@ runs:
         SSH_SHORT="ssh $SSH_BASE"
         SSH_FULL="$SSH_SHORT -t \"$SSH_SCRIPT\""
         
+        # Create a help message.
         {
           echo 'help-message<<EOF'
           cat << HELP_EOF
@@ -110,15 +122,15 @@ runs:
             - SSH access is limited to the keys provided in \033[1mauthorized-keys\033[0m 
               and a GitHub user who started this debug session if \033[1muse-actor-ssh-keys\033[0m is given.
             - Your GitHub account's SSH keys will be used for authentication if \033[1muse-actor-ssh-keys\033[0m is given.
-            TODO - Session will automatically end after disconnect
+            - To finish a session, create a file \033[1${{ inputs.wait-for-file }}\033[0m or use \033[1Cancel workflow\033[0m in Github UI.
             - Maximum session time is 30 minutes
-            TODO - All changes are temporary and will be lost after session ends
+            - All changes are temporary and will be lost after session ends
         
         \033[1;36m===============================================================\033[0m
         
         \033[1;32m🔗 1. Connect with SSH:\033[0m
-              \033[1m$SSH_BASE\033[0m
-              \033[1m$SSH_FULL\033[0m
+              \033[1m$SSH_SHORT\033[0m
+              \033[1mcd "$WORKING_DIR"\033[0m
         
         \033[1;32m🔄 2. Forward a port:\033[0m
               \033[1mssh -L 3000:localhost:8080 $SSH_BASE\033[0m
@@ -130,14 +142,16 @@ runs:
               - Enter the SSH command from step 1
               - Select the session to connect and open $WORKING_DIR
               VS Code on remote environment will allow you to forward any ports.
-        
+        \033[1;32m💻 4. To finish session, create a file:\033[0m
+              
         \033[1;32m🚀 Happy coding! 💻 🎉\033[0m
         HELP_EOF
           echo 'EOF'
         } >> $GITHUB_OUTPUT
 
-    - name: Connection info
+    - name: Print help message
       shell: bash
+      if: ${{ inputs.display-help-message == 'true' }}
       env:
         HELP_MESSAGE: ${{ steps.help-msg.outputs.help-message }}
       run: |
@@ -147,7 +161,7 @@ runs:
       uses: lexbritvin/wait-for-action@main
       with:
         condition-type: 'file'
-        file-path: './finish-debug'
+        file-path: ${{ inputs.wait-for-file }}
         timeout-seconds: ${{ inputs.wait-timeout }}
         poll-interval-seconds: '60'
         detached: 'true'
