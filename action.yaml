@@ -6,28 +6,10 @@ branding:
   color: 'blue'
 
 inputs:
-  ssh-jump-user:
+  ssh-host-alias:
     required: false
-    default: ''
     description: ''
-
-  ssh-jump-host:
-    required: true
-    description: 'SSH jump host server for tunneling SSH server access'
-
-  ssh-jump-port:
-    required: false
-    default: '22'
-    description: 'SSH jump host port for tunneling SSH server access'
-
-  ssh-jump-private-key:
-    required: false
     default: ''
-    description: ''
-
-  ssh-jump-host-key:
-    required: true
-    description: 'SSH host key for jump server verification (known_hosts format)'
 
   ssh-user:
     description: 'SSH username. Use :current to get the current user name (default: :current)'
@@ -43,6 +25,46 @@ inputs:
     description: 'Authorized public keys (one per line)'
     required: false
 
+  ssh-jump-user:
+    required: false
+    default: ''
+    description: |
+      :generate
+
+  ssh-jump-host:
+    required: false
+    default: ''
+    description: 'SSH jump host server for tunneling SSH server access'
+
+  ssh-jump-port:
+    required: false
+    default: '22'
+    description: 'SSH jump host port for tunneling SSH server access'
+
+  ssh-jump-forward:
+    required: false
+    description: |
+      Can be 0 for random port and public access (serveo, pinggy, or arbitrary server), 
+      or :generate (ssh-j, serveo) to use a generated host alias, 
+      custom user port or alias like myhost:2222 
+      empty for not using jump when there are other ways to connect.
+    default: ''
+
+  ssh-jump-private-key:
+    required: false
+    default: ''
+    description: ''
+
+  ssh-jump-host-key:
+    required: false
+    description: 'SSH host key for jump server verification (known_hosts format)'
+    default: ''
+
+  ssh-jump-extra-flags:
+    description: 'Additional SSH flags'
+    required: false
+    default: ''
+
   use-actor-ssh-keys:
     description: 'Whether to authorize the public SSH keys of the user triggering the workflow'
     required: false
@@ -50,7 +72,7 @@ inputs:
 
   wait-for-file:
     description: ''
-    required: true
+    required: false
     default: './finish-debug'
 
   wait-timeout:
@@ -69,87 +91,168 @@ inputs:
     default: 'false'
 
 outputs:
+  ssh-host:
+    description: ''
+    value: ${{ steps.conn.outputs.ssh-host }}
+  ssh-port:
+    description: ''
+    value: ${{ steps.conn.outputs.ssh-port }}
+  ssh-user:
+    description: ''
+    value: ${{ steps.conn.outputs.ssh-user }}
+  ssh-jump-host:
+    description: ''
+    value: ${{ steps.conn.outputs.ssh-jump-host }}
+  ssh-jump-port:
+    description: ''
+    value: ${{ steps.conn.outputs.ssh-jump-port }}
+  ssh-jump-user:
+    description: ''
+    value: ${{ steps.conn.outputs.ssh-jump-user }}
+  ssh-host-keys:
+    description: ''
+    value: ${{ steps.ssh-server.outputs.host-keys }}
   ssh-command:
     description: ''
-    value: ${{ steps.help-msg.outputs.ssh-command }}
+    value: ${{ steps.conn.outputs.ssh-command }}
   help-message:
     description: ''
-    value: ${{ steps.help-msg.outputs.help-message }}
+    value: ${{ steps.help.outputs.help-message }}
 
 runs:
   using: 'composite'
   steps:
     - name: Configure SSH daemon
-      id: sshd
+      id: ssh-server
       uses: lexbritvin/setup-sshd-action@main
       with:
+        ssh-user: ${{ inputs.ssh-user }}
         port: ${{ inputs.ssh-port }}
         authorized-keys: ${{ inputs.ssh-authorized-keys }}
         use-actor-ssh-keys: ${{ inputs.use-actor-ssh-keys }}
 
-    - name: Prepare jump host
-      id: jump-info
+    - name: Prepare SSH connection details
+      id: ssh-conf
       shell: bash
       env:
-        SSH_PRIVATE_KEY: ${{ inputs.ssh-jump-private-key }}
+        SSH_HOST: ${{ steps.ssh-server.outputs.hostname }}
+        SSH_PORT: ${{ steps.ssh-server.outputs.port }}
+        SSH_HOST_ALIAS: "${{ inputs.ssh-host-alias }}"
+        SSH_JUMP_FORWARD: "${{ inputs.ssh-jump-forward }}"
+        SSH_JUMP_HOST: ${{ inputs.ssh-jump-host }}
+        SSH_JUMP_PORT: ${{ inputs.ssh-jump-port }}
         SSH_JUMP_USER: ${{ inputs.ssh-jump-user }}
+        SSH_STRICT_HOST_CHECK: ${{ inputs.ssh-strict-host-check }}
       run: |
-        if [[ -z "$SSH_JUMP_USER" ]]; then
-          SSH_JUMP_USER="github-runner-${{ github.run_id }}-$RANDOM"
+        # Determine SSH jump user and remote forwards based on ssh-jump-forward
+        SSH_REMOTE_FORWARDS=""
+        SSH_GEN_ALIAS="gh-runner-${{ github.job }}-${{ github.run_id }}-$RANDOM"
+        SSH_GEN_USER="$SSH_GEN_ALIAS"
+        
+        if [[ -z "$SSH_JUMP_FORWARD" ]]; then
+          SSH_JUMP_HOST=""
+          SSH_JUMP_PORT=""
+          SSH_JUMP_USER=""
+        elif [[ "$SSH_JUMP_FORWARD" == ":generate" ]]; then
+          SSH_HOST_ALIAS="${SSH_HOST_ALIAS:-$SSH_GEN_ALIAS}"
+          SSH_REMOTE_FORWARDS="$SSH_HOST_ALIAS:$SSH_PORT:$SSH_HOST:$SSH_PORT"
+        else
+          SSH_REMOTE_FORWARDS="$SSH_JUMP_FORWARD:$SSH_HOST:$SSH_PORT"
         fi
+        
+        [[ "$SSH_JUMP_USER" == ":generate" ]] && SSH_JUMP_USER="$SSH_GEN_USER"
+        
+        SSH_HOST_ALIAS=${SSH_HOST_ALIAS:-localhost}
 
-        echo "username=$SSH_JUMP_USER" >> $GITHUB_OUTPUT
-        echo "remote-forwards=$SSH_JUMP_USER:${{ steps.sshd.outputs.port }}:${{ steps.sshd.outputs.hostname }}:${{ steps.sshd.outputs.port }}" >> $GITHUB_OUTPUT
-        echo "hostname=$SSH_JUMP_USER" >> $GITHUB_OUTPUT
+        echo "ssh-host-alias=$SSH_HOST_ALIAS" >> $GITHUB_OUTPUT
+        echo "ssh-jump-host=$SSH_JUMP_HOST" >> $GITHUB_OUTPUT
+        echo "ssh-jump-port=$SSH_JUMP_PORT" >> $GITHUB_OUTPUT
+        echo "ssh-jump-user=$SSH_JUMP_USER" >> $GITHUB_OUTPUT
+        echo "ssh-remote-forwards=$SSH_REMOTE_FORWARDS" >> $GITHUB_OUTPUT
 
-    - name: Establish SSH tunnel
-      id: sshd-tunnel
+    - name: Forward SSH server port to Jump host
+      id: tun
       uses: lexbritvin/ssh-port-forward-action@main
+      if: ${{ !!steps.ssh-conf.outputs.ssh-jump-host }}
       with:
-        host: ${{ inputs.ssh-jump-host }}
-        username: "${{ steps.jump-info.outputs.username }}"
-        port: "${{ inputs.ssh-jump-port }}"
+        host: ${{ steps.ssh-conf.outputs.ssh-jump-host }}
+        port: ${{ steps.ssh-conf.outputs.ssh-jump-port }}
+        username: ${{ steps.ssh-conf.outputs.ssh-jump-user }}
         private-key: ${{ inputs.ssh-jump-private-key }}
-        private-key-path:  "${{ steps.jump-info.outputs.private-key-path }}"
-        remote-forwards: "${{ steps.jump-info.outputs.remote-forwards }}"
+        remote-forwards: "${{ steps.ssh-conf.outputs.ssh-remote-forwards }}"
+        extra-flags: "${{ inputs.ssh-jump-extra-flags }}"
         known-hosts: ${{ inputs.ssh-jump-host-key }}
 
     - name: Output connection information
-      id: help-msg
+      id: conn
       shell: bash
+      env:
+        ALLOCATED_HOST: ${{ steps.tun.outputs.allocated-host }}
+        ALLOCATED_PORT: ${{ steps.tun.outputs.allocated-port }}
+        SSH_HOST: "${{ steps.ssh-conf.outputs.ssh-host-alias }}"
+        SSH_PORT: "${{ steps.ssh-server.outputs.port }}"
+        SSH_USER: "${{ steps.ssh-server.outputs.username }}"
+        SSH_JUMP_HOST: "${{ steps.ssh-conf.outputs.ssh-jump-host }}"
+        SSH_JUMP_PORT: "${{ steps.ssh-conf.outputs.ssh-jump-port }}"
+        SSH_JUMP_USER: "${{ steps.ssh-conf.outputs.ssh-jump-user }}"
       run: |
         # Prepare SSH connection details
-        SSH_COMMAND="ssh"
+        SSH_CMD=""
+        
+        [[ -n "$ALLOCATED_PORT" ]] && SSH_PORT="$ALLOCATED_PORT"
+        if [[ -n "$ALLOCATED_HOST" ]]; then
+          SSH_HOST="$ALLOCATED_HOST"
+          SSH_JUMP_HOST=""
+          SSH_JUMP_PORT=""
+          SSH_JUMP_USER=""
+        fi
         
         # Add jump host
-        SSH_JUMP="${{ steps.jump-info.outputs.username }}@${{ inputs.ssh-jump-host }}:${{ inputs.ssh-jump-port }}"
-        if [[ -n "$SSH_JUMP" ]]; then
-          SSH_COMMAND="$SSH_COMMAND -J $SSH_JUMP"
+        if [[ -n "$SSH_JUMP_HOST" ]]; then
+          SSH_JUMP="$SSH_JUMP_HOST:$SSH_JUMP_PORT"
+          [[ -n "$SSH_JUMP_USER" ]] && SSH_JUMP="$SSH_JUMP_USER@$SSH_JUMP"
+          SSH_CMD="$SSH_CMD -J \"$SSH_JUMP\""
         fi
         
         # Add custom ssh port
-        SSH_PORT="${{ steps.sshd.outputs.port }}"
-        if [[ "$SSH_PORT" != "22" ]]; then
-          SSH_COMMAND="$SSH_COMMAND -p $SSH_PORT"
-        fi
+        [[ "$SSH_PORT" != "22" ]] && SSH_CMD="$SSH_CMD -p $SSH_PORT"
         
         # Add login
-        SSH_LOGIN="${{ steps.sshd.outputs.username }}@${{ steps.jump-info.outputs.hostname }}"
+        SSH_LOGIN="$SSH_HOST"
+        [[ -n "$SSH_USER" ]] && SSH_LOGIN="$SSH_USER@$SSH_HOST"
 
         # Output ssh command
-        SSH_COMMAND="$SSH_COMMAND $SSH_LOGIN"
-        echo "ssh-command=$SSH_COMMAND" >> $GITHUB_OUTPUT
-        
-        WORKING_DIR="$(cygpath -w "$(pwd)" 2>/dev/null | sed 's/\\/\\\\/g' || echo "$(pwd)")"
-        TIMEOUT_MIN=$(( ${{ inputs.wait-timeout }} / 60 ))
+        SSH_CMD="$SSH_CMD $SSH_LOGIN"
+        SSH_CMD_FULL="ssh $SSH_CMD"
 
-        # Create a help message.
-        {
-          echo 'help-message<<EOF'
-          cat << HELP_EOF
+        if [[ "$RUNNER_OS" == "Windows" ]]; then
+          # Request TTY explicitly on Windows server
+          SSH_CMD_FULL="$SSH_CMD_FULL -t powershell"
+        fi
+        echo "ssh-command=$SSH_CMD_FULL" >> $GITHUB_OUTPUT
+        
+        # Export variables to outputs.
+        echo "ssh-host=$SSH_HOST" >> $GITHUB_OUTPUT
+        echo "ssh-port=$SSH_PORT" >> $GITHUB_OUTPUT
+        echo "ssh-user=$SSH_USER" >> $GITHUB_OUTPUT
+        echo "ssh-jump-host=$SSH_JUMP_HOST" >> $GITHUB_OUTPUT
+        echo "ssh-jump-port=$SSH_JUMP_PORT" >> $GITHUB_OUTPUT
+        echo "ssh-jump-user=$SSH_JUMP_USER" >> $GITHUB_OUTPUT
+
+    - name: Print help message
+      shell: bash
+      id: help
+      run: |
+        # Prepare a path for Unix and Windows. Escape special characters
+        WORKING_DIR="$(cygpath -w "$(pwd)" 2>/dev/null | sed 's/\\/\\\\/g' || echo "$(pwd)")"
+        
+        # Convert timeout seconds to minutes
+        TIMEOUT_MIN=$(( ${{ inputs.wait-timeout }} / 60 ))
+        
+        HELP_MESSAGE=$(cat << HELP_EOF
         \033[1;36mDebug Session\033[0m
 
-            \033[1m$SSH_COMMAND\033[0m
+            \033[1m$SSH_CMD_FULL\033[0m
             \033[1mcd "$WORKING_DIR"\033[0m
 
         \033[1;33m🛑 TO END SESSION 🛑\033[0m
@@ -164,43 +267,49 @@ runs:
           • All changes are temporary and will be lost when the session ends
 
         \033[1;35m🔑 Server SSH host keys\033[0m
-        ${{ steps.sshd.outputs.host-keys }}
+        ${{ steps.ssh-server.outputs.host-keys }}
 
         \033[1;36m====================================================================================================\033[0m
 
-        \033[1;32m🔗 1. Connect with SSH:\033[0m
+        \033[1;32m🔗 Connect with SSH:\033[0m
 
-            \033[1m$SSH_COMMAND\033[0m
+          • Connect and go to project directory:
+            \033[1m$SSH_CMD_FULL\033[0m
             \033[1mcd "$WORKING_DIR"\033[0m
         
-        \033[1;32m🔄 2. Forward a port:\033[0m
+          • Use a custom private key if needed:
+            ssh -i /path/to/key $SSH_CMD
+        
+          • Forward a local port without terminal:
+            \033[1mssh -L 3000:localhost:8080 $SSH_CMD -N -T\033[0m
 
-            \033[1m$SSH_COMMAND -L 3000:localhost:8080\033[0m
+        \033[1;32m💻 Connect via VS Code for the full developer experience:\033[0m
+          • Open VS Code
+          • Install the Remote SSH extension (if not already installed)
+          • Select \033[1m"Remote-SSH: Connect to Host..."\033[0m
+          • Enter the SSH command from step 1
+          • Select the new session to connect and Open \033[1m$WORKING_DIR\033[0m
         
-        \033[1;32m💻 3. Connect via VS Code for the full developer experience:\033[0m
-            • Open VS Code
-            • Install the Remote SSH extension (if not already installed)
-            • Select \033[1m"Remote-SSH: Connect to Host..."\033[0m
-            • Enter the SSH command from step 1
-            • Select the new session to connect and Open \033[1m$WORKING_DIR\033[0m
-        
-            \033[1;35m💡 Tip:\033[0m VS Code's remote environment allows you to forward any ports easily.
+          \033[1;35m💡 Tip:\033[0m VS Code's remote environment allows you to forward any ports easily.
         
         \033[1;35m🚀 Happy coding! 💻 🎉\033[0m
-        HELP_EOF
+        HELP_EOF)
+        
+        # Export help message
+        {
+          echo 'help-message<<EOF'
+          echo $HELP_MESSAGE
           echo 'EOF'
         } >> $GITHUB_OUTPUT
-
-    - name: Print help message
-      shell: bash
-      if: ${{ inputs.display-help-message == 'true' }}
-      env:
-        HELP_MESSAGE: ${{ steps.help-msg.outputs.help-message }}
-      run: |
-        printf '%b\n' "$HELP_MESSAGE"
+        
+        # Pring help message
+        if [[ "${{ inputs.display-help-message }}" == "true" ]]; then
+          printf '%b\n' "$HELP_MESSAGE"
+        fi
 
     - name: 📄 Wait for Finish
       uses: lexbritvin/wait-for-action@main
+      if: ${{ !!inputs.wait-for-file }}
       with:
         condition-type: 'file'
         file-path: ${{ inputs.wait-for-file }}
