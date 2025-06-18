@@ -24,3 +24,4 @@ jobs:
           ssh-jump-forward: ${{ env.SSH_JUMP_FORWARD }}
           ssh-jump-host: ${{ env.SSH_JUMP_SERVER }}
           ssh-jump-host-keys: ${{ env.SSH_JUMP_HOST_KEY }}
+          use-actor-ssh-keys: 'true'
