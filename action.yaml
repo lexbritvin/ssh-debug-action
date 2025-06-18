@@ -138,6 +138,17 @@ outputs:
 runs:
   using: 'composite'
   steps:
+    - name: Validate input
+      shell: bash
+      env:
+        SSH_HOST_ALIAS: "${{ inputs.ssh-host-alias }}"
+        SSH_JUMP_FORWARD: "${{ inputs.ssh-jump-forward }}"
+      run: |
+        if [[ -z "$SSH_JUMP_FORWARD" && -z "$SSH_HOST_ALIAS" ]]; then
+          echo "Specify `ssh-host-alias` or `ssh-jump-forward`"
+          exit 1
+        fi
+
     - name: Configure SSH daemon
       id: ssh-server
       uses: lexbritvin/setup-sshd-action@main
@@ -279,7 +290,7 @@ runs:
         TIMEOUT_MIN=$(( ${{ inputs.wait-timeout }} / 60 ))
         
         # Generate comprehensive help message with ANSI styling
-        HELP_MESSAGE=$(cat << 'HELP_EOF'
+        HELP_MESSAGE=$(cat << HELP_EOF
         \033[1;36m🚀 SSH Debug Session Ready!\033[0m
         
         \033[1;32m📡 QUICK CONNECTION:\033[0m
