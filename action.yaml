@@ -1,5 +1,5 @@
-name: 'Cross-Platform SSH Server'
-description: 'Sets up an SSH server on Windows, Linux, or macOS with configurable keys and automatic cleanup'
+name: 'SSH Debug (Linux, Windows, macOS)'
+description: 'Debug GitHub runners on Windows, Linux & macOS via SSH with jump host tunneling and remote access capabilities'
 
 branding:
   icon: 'server'
@@ -8,21 +8,25 @@ branding:
 inputs:
   ssh-host-alias:
     required: false
-    description: 'SSH host alias for connection (used when jump host provides custom hostname)'
+    description: |
+      SSH hostname alias to used in outputs. 
+      When left empty, this will be automatically set in two cases: 
+      1. if `ssh-jump-forward` is set to `:generate`, a hostname will be generated inside jump-host 
+      2. if the jump host provides a direct connection hostname, that will be used instead
     default: ''
 
-  ssh-user:
-    description: 'SSH username. Use :current to get the current user name'
+  ssh-server-user:
+    description: 'SSH username for the server and authorized keys. Use :current to get the current user name'
     required: false
     default: ':current'
 
-  ssh-port:
+  ssh-server-port:
     description: 'SSH server port'
     required: false
     default: '2222'
 
-  authorized-keys:
-    description: 'Authorized public keys (one per line) for SSH authentication'
+  ssh-server-authorized-keys:
+    description: 'Authorized public keys (one per line) for SSH Server authentication'
     required: false
 
   ssh-jump-user:
@@ -53,11 +57,16 @@ inputs:
   ssh-jump-private-key:
     required: false
     default: ''
-    description: 'Private key for authenticating with the SSH jump host'
+    description: 'Private key content for authenticating with the SSH jump host'
 
-  ssh-jump-host-key:
+  ssh-jump-private-key-path:
     required: false
-    description: 'SSH host key for jump server verification (known_hosts format)'
+    default: ''
+    description: 'Private key path for authenticating with the SSH jump host'
+
+  ssh-jump-host-keys:
+    required: false
+    description: 'SSH host keys for jump server verification (known_hosts format)'
     default: ''
 
   ssh-jump-extra-flags:
@@ -68,7 +77,7 @@ inputs:
   use-actor-ssh-keys:
     description: 'Whether to authorize the public SSH keys of the user triggering the workflow'
     required: false
-    default: 'true'
+    default: 'false'
 
   wait-for-file:
     description: 'File path to monitor for session termination (create this file to end the debug session)'
@@ -133,9 +142,9 @@ runs:
       id: ssh-server
       uses: lexbritvin/setup-sshd-action@main
       with:
-        ssh-user: ${{ inputs.ssh-user }}
-        port: ${{ inputs.ssh-port }}
-        authorized-keys: ${{ inputs.authorized-keys }}
+        ssh-user: ${{ inputs.ssh-server-user }}
+        port: ${{ inputs.ssh-server-port }}
+        authorized-keys: ${{ inputs.ssh-server-authorized-keys }}
         use-actor-ssh-keys: ${{ inputs.use-actor-ssh-keys }}
 
     - name: Prepare SSH connection details
@@ -192,9 +201,10 @@ runs:
         port: ${{ steps.ssh-conf.outputs.ssh-jump-port }}
         username: ${{ steps.ssh-conf.outputs.ssh-jump-user }}
         private-key: ${{ inputs.ssh-jump-private-key }}
+        private-key-path: ${{ inputs.ssh-jump-private-key-path }}
         remote-forwards: "${{ steps.ssh-conf.outputs.ssh-remote-forwards }}"
         extra-flags: "${{ inputs.ssh-jump-extra-flags }}"
-        known-hosts: ${{ inputs.ssh-jump-host-key }}
+        known-hosts: ${{ inputs.ssh-jump-host-keys }}
 
     - name: Generate SSH connection command
       id: conn

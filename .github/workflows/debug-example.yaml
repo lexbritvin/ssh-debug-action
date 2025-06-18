@@ -23,4 +23,4 @@ jobs:
           ssh-jump-user: ${{ env.SSH_JUMP_USER }}
           ssh-jump-forward: ${{ env.SSH_JUMP_FORWARD }}
           ssh-jump-host: ${{ env.SSH_JUMP_SERVER }}
-          ssh-jump-host-key: ${{ env.SSH_JUMP_HOST_KEY }}
+          ssh-jump-host-keys: ${{ env.SSH_JUMP_HOST_KEY }}
