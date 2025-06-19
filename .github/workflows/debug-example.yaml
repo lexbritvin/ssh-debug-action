@@ -37,3 +37,10 @@ jobs:
           ssh-jump-host-keys: ${{ env.SSH_JUMP_HOST_KEYS }}
           ssh-jump-forward: ${{ env.SSH_JUMP_FORWARD }}
           use-actor-ssh-keys: 'true'
+
+      - name: 🛠 Set up tmate session 🛠
+        id: tmate
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3
+        with:
+          limit-access-to-actor: true
