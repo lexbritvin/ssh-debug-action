@@ -1,27 +1,39 @@
 name: Debug Workflow Example
 
 on:
-  push:
-    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      os:
+        description: 'Debug with SSH in OS'
+        required: false
+        type: choice
+        options:
+          - 'ubuntu-latest'
+          - 'macos-latest'
+          - 'windows-latest'
 
 env:
-  SSH_JUMP_USER: ':generate'
-  SSH_JUMP_FORWARD: ':generate'
-  SSH_JUMP_SERVER: ssh-j.com
-  SSH_JUMP_HOST_KEY: |
-    ssh-j.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIiyFQuTwegicQ+8w7dLA7A+4JMZkCk8TLWrKPklWcRt
+#  SSH_JUMP_USER: ':generate'
+#  SSH_JUMP_FORWARD: ':generate'
+#  SSH_JUMP_SERVER: ssh-j.com
+#  SSH_JUMP_HOST_KEYS: |
+#    ssh-j.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIiyFQuTwegicQ+8w7dLA7A+4JMZkCk8TLWrKPklWcRt
+
+  SSH_JUMP_FORWARD: '0'
+  SSH_JUMP_SERVER: serveo.net
+  SSH_JUMP_HOST_KEYS: |
+    serveo.net ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDxYGqSKVwJpQD1F0YIhz+bd5lpl7YesKjtrn1QD1RjQcSj724lJdCwlv4J8PcLuFFtlAA8AbGQju7qWdMN9ihdHvRcWf0tSjZ+bzwYkxaCydq4JnCrbvLJPwLFaqV1NdcOzY2NVLuX5CfY8VTHrps49LnO0QpGaavqrbk+wTWDD9MHklNfJ1zSFpQAkSQnSNSYi/M2J3hX7P0G2R7dsUvNov+UgNKpc4n9+Lq5Vmcqjqo2KhFyHP0NseDLpgjaqGJq2Kvit3QowhqZkK4K77AA65CxZjdDfpjwZSuX075F9vNi0IFpFkGJW9KlrXzI4lIzSAjPZBURhUb8nZSiPuzj
 
 jobs:
   debug:
     name: SSH Debug
-    runs-on: ubuntu-latest
-#    runs-on: windows-latest
+    runs-on: ${{ inputs.os }}
     steps:
       - name: Run SSH Debug
         uses: lexbritvin/ssh-debug-action@main
         with:
-          ssh-jump-user: ${{ env.SSH_JUMP_USER }}
-          ssh-jump-forward: ${{ env.SSH_JUMP_FORWARD }}
           ssh-jump-host: ${{ env.SSH_JUMP_SERVER }}
-          ssh-jump-host-keys: ${{ env.SSH_JUMP_HOST_KEY }}
+          ssh-jump-user: ${{ env.SSH_JUMP_USER }}
+          ssh-jump-host-keys: ${{ env.SSH_JUMP_HOST_KEYS }}
+          ssh-jump-forward: ${{ env.SSH_JUMP_FORWARD }}
           use-actor-ssh-keys: 'true'
