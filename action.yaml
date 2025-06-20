@@ -205,7 +205,7 @@ runs:
 
     - name: Forward SSH server port to Jump host
       id: tun
-      uses: lexbritvin/ssh-port-forward-action@main
+      uses: lexbritvin/ssh-action@v1
       if: ${{ !!steps.ssh-conf.outputs.ssh-jump-host }}
       with:
         host: ${{ steps.ssh-conf.outputs.ssh-jump-host }}
