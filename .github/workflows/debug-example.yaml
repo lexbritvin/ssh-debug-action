@@ -13,14 +13,12 @@ on:
           - 'windows-latest'
 
 env:
-
 #  SSH_JUMP_HOST: ssh-j.com
 #  SSH_JUMP_PORT: '22'
 #  SSH_JUMP_USER: ':generate'
 #  SSH_JUMP_FORWARD: ':generate'
 #  SSH_JUMP_HOST_KEYS: |
 #    ssh-j.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIiyFQuTwegicQ+8w7dLA7A+4JMZkCk8TLWrKPklWcRt
-
 
 #  SSH_JUMP_HOST: serveo.net
 #  SSH_JUMP_PORT: '22'

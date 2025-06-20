@@ -290,12 +290,6 @@ runs:
         # Prepare cross-platform working directory path
         WORKING_DIR="$(cygpath -w "$(pwd)" 2>/dev/null | sed 's/\\/\\\\/g' || echo "$(pwd)")"
         WAIT_FILE="$(cygpath -w "$INPUT_WAIT_FILE" 2>/dev/null | sed 's/\\/\\\\/g' || echo "$INPUT_WAIT_FILE")"
-        CLI_TYPE="Bash"
-        HELP_WAIT_FILE="cd \"$WORKING_DIR\" && touch $WAIT_FILE"
-        if [[ "$RUNNER_OS" == "Windows" ]]; then
-          CLI_TYPE="PowerShell"
-          HELP_WAIT_FILE="Set-Location '$WORKING_DIR'; New-Item -ItemType File -Name '$WAIT_FILE' -Force"
-        fi
         
         # Convert timeout from seconds to minutes for user display
         TIMEOUT_MIN=$(( $INPUT_WAIT_TIMEOUT / 60 ))
@@ -310,7 +304,8 @@ runs:
 
         \033[1;33m🛑 TO END SESSION:\033[0m
           • Create file: \033[1m$WAIT_FILE\033[0m
-              $CLI_TYPE: \033[1m$HELP_WAIT_FILE\033[0m
+              Bash: \033[1mcd "$WORKING_DIR" && touch "$WAIT_FILE"
+              PowerShell: Set-Location '$WORKING_DIR'; New-Item -ItemType File -Name '$WAIT_FILE' -Force
           • \033[1mOR\033[0m Use "Cancel workflow" in GitHub UI
 
         \033[1;33m⚠️ SESSION INFO:\033[0m
