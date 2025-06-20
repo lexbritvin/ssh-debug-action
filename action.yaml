@@ -141,10 +141,10 @@ runs:
     - name: Validate input
       shell: bash
       env:
-        SSH_HOST_ALIAS: "${{ inputs.ssh-host-alias }}"
-        SSH_JUMP_FORWARD: "${{ inputs.ssh-jump-forward }}"
+        INPUT_SSH_HOST_ALIAS: "${{ inputs.ssh-host-alias }}"
+        INPUT_SSH_JUMP_FORWARD: "${{ inputs.ssh-jump-forward }}"
       run: |
-        if [[ -z "$SSH_JUMP_FORWARD" && -z "$SSH_HOST_ALIAS" ]]; then
+        if [[ -z "$INPUT_SSH_JUMP_FORWARD" && -z "$INPUT_SSH_HOST_ALIAS" ]]; then
           echo "Specify `ssh-host-alias` or `ssh-jump-forward`"
           exit 1
         fi
@@ -162,10 +162,10 @@ runs:
       id: ssh-conf
       shell: bash
       env:
+        INPUT_SSH_HOST_ALIAS: "${{ inputs.ssh-host-alias }}"
+        INPUT_SSH_JUMP_FORWARD: "${{ inputs.ssh-jump-forward }}"
         SSH_HOST: ${{ steps.ssh-server.outputs.hostname }}
         SSH_PORT: ${{ steps.ssh-server.outputs.port }}
-        SSH_HOST_ALIAS: "${{ inputs.ssh-host-alias }}"
-        SSH_JUMP_FORWARD: "${{ inputs.ssh-jump-forward }}"
         SSH_JUMP_HOST: ${{ inputs.ssh-jump-host }}
         SSH_JUMP_PORT: ${{ inputs.ssh-jump-port }}
         SSH_JUMP_USER: ${{ inputs.ssh-jump-user }}
@@ -176,18 +176,19 @@ runs:
         SSH_GEN_USER="$SSH_GEN_ALIAS"
         
         # Configure jump host settings based on ssh-jump-forward parameter
-        if [[ -z "$SSH_JUMP_FORWARD" ]]; then
+        SSH_HOST_ALIAS="$INPUT_SSH_HOST_ALIAS"
+        if [[ -z "$INPUT_SSH_JUMP_FORWARD" ]]; then
           # No jump host configuration
           SSH_JUMP_HOST=""
           SSH_JUMP_PORT=""
           SSH_JUMP_USER=""
-        elif [[ "$SSH_JUMP_FORWARD" == ":generate" ]]; then
+        elif [[ "$INPUT_SSH_JUMP_FORWARD" == ":generate" ]]; then
           # Generate host alias and configure remote forwarding
           SSH_HOST_ALIAS="${SSH_HOST_ALIAS:-$SSH_GEN_ALIAS}"
           SSH_REMOTE_FORWARDS="$SSH_HOST_ALIAS:$SSH_PORT:$SSH_HOST:$SSH_PORT"
         else
           # Use custom forwarding configuration
-          SSH_REMOTE_FORWARDS="$SSH_JUMP_FORWARD:$SSH_HOST:$SSH_PORT"
+          SSH_REMOTE_FORWARDS="$INPUT_SSH_JUMP_FORWARD:$SSH_HOST:$SSH_PORT"
         fi
         
         # Generate jump user if requested
@@ -282,12 +283,22 @@ runs:
       env:
         SSH_CMD: ${{ steps.conn.outputs.ssh-command }}
         SSH_PARAMS: ${{ steps.conn.outputs.ssh-params }}
+        INPUT_WAIT_TIMEOUT: ${{ inputs.wait-timeout }}
+        INPUT_WAIT_FILE: ${{ inputs.wait-for-file }}
+        INPUT_DISPLAY_HELP: ${{ inputs.display-help-message }}
       run: |
         # Prepare cross-platform working directory path
         WORKING_DIR="$(cygpath -w "$(pwd)" 2>/dev/null | sed 's/\\/\\\\/g' || echo "$(pwd)")"
+        WAIT_FILE="$(cygpath -w "$INPUT_WAIT_FILE" 2>/dev/null | sed 's/\\/\\\\/g' || echo "$INPUT_WAIT_FILE")"
+        CLI_TYPE="Bash"
+        HELP_WAIT_FILE="cd \"$WORKING_DIR\" && touch $WAIT_FILE"
+        if [[ "$RUNNER_OS" == "Windows" ]]; then
+          CLI_TYPE="PowerShell"
+          HELP_WAIT_FILE="Set-Location '$WORKING_DIR'; New-Item -ItemType File -Name '$WAIT_FILE' -Force"
+        fi
         
         # Convert timeout from seconds to minutes for user display
-        TIMEOUT_MIN=$(( ${{ inputs.wait-timeout }} / 60 ))
+        TIMEOUT_MIN=$(( $INPUT_WAIT_TIMEOUT / 60 ))
         
         # Generate comprehensive help message with ANSI styling
         HELP_MESSAGE=$(cat << HELP_EOF
@@ -298,7 +309,8 @@ runs:
             \033[1mcd "$WORKING_DIR"\033[0m
 
         \033[1;33m🛑 TO END SESSION:\033[0m
-          • Create file: \033[1m${{ inputs.wait-for-file }}\033[0m
+          • Create file: \033[1m$WAIT_FILE\033[0m
+              $CLI_TYPE: \033[1m$HELP_WAIT_FILE\033[0m
           • \033[1mOR\033[0m Use "Cancel workflow" in GitHub UI
 
         \033[1;33m⚠️ SESSION INFO:\033[0m
@@ -343,7 +355,7 @@ runs:
         } >> $GITHUB_OUTPUT
         
         # Display help message if enabled
-        if [[ "${{ inputs.display-help-message }}" == "true" ]]; then
+        if [[ "$INPUT_DISPLAY_HELP" == "true" ]]; then
           printf '%b\n' "$HELP_MESSAGE"
         fi
 
