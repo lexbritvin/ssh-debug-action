@@ -26,6 +26,7 @@ jobs:
     runs-on: ${{ inputs.os }}
     steps:
       - name: Run SSH Debug
+        id: ssh-debug
         uses: lexbritvin/ssh-debug-action@main
         with:
           ssh-jump-host: ${{ env.SSH_JUMP_HOST }}
@@ -34,3 +35,40 @@ jobs:
           ssh-jump-host-keys: ${{ env.SSH_JUMP_HOST_KEYS }}
           ssh-jump-forward: ${{ env.SSH_JUMP_FORWARD }}
           use-actor-ssh-keys: 'true'
+          detached: 'true'
+
+      - name: Display Connection Help
+        env:
+          HELP_MESSAGE: ${{ steps.ssh-debug.outputs.help-message }}
+          EXTRA_HELP: |
+            ╔══════════════════════════════════════════════════════════════════════════════════════════╗
+            ║                              🐛 GO DEBUGGING WITH DELVE                                  ║
+            ╚══════════════════════════════════════════════════════════════════════════════════════════╝
+            
+            \033[1;32m┌─ 🔄 PORT FORWARDING FOR DELVE\033[0m
+            \033[1;32m│\033[0m   \033[1;97mssh -L 2345:localhost:2345 ...\033[0m
+            \033[1;32m└─\033[0m
+            
+            \033[1;33m┌─ 🛠️  DEBUG COMMANDS\033[0m
+            \033[1;33m│\033[0m   \033[1;97mRun all tests:\033[0m
+            \033[1;33m│\033[0m     \033[97mgo test ./...\033[0m
+            \033[1;33m│\033[0m   \033[1;97mRun specific test:\033[0m
+            \033[1;33m│\033[0m     \033[97mgo test -v -run TestFooBar ./...\033[0m
+            \033[1;33m│\033[0m   \033[1;97mDebug specific test:\033[0m
+            \033[1;33m│\033[0m     \033[97mdlv --listen=:2345 --headless --api-version=2 test ./... -- -test.run TestFooBar\033[0m
+            \033[1;33m│\033[0m   \033[1;97mDebug application:\033[0m
+            \033[1;33m│\033[0m     \033[97mdlv debug --headless --listen=:2345 --api-version=2 ./cmd/foo -- [args...]\033[0m
+            \033[1;33m└─\033[0m
+            
+            \033[1;34m┌─ 🔗 IDE INTEGRATION\033[0m
+            \033[1;34m│\033[0m   \033[1;36mConnect to Delve on port 2345:\033[0m
+            \033[1;34m│\033[0m   \033[1;36m•\033[0m \033[1;97mVS Code:\033[0m https://github.com/golang/vscode-go/blob/master/docs/debugging.md
+            \033[1;34m│\033[0m   \033[1;36m•\033[0m \033[1;97mGoLand/IntelliJ:\033[0m https://www.jetbrains.com/help/go/attach-to-running-go-processes-with-debugger.html#attach-to-a-process-on-a-remote-machine
+            \033[1;34m└─\033[0m
+            
+            \033[1;36m📚 Delve Documentation:\033[0m https://github.com/go-delve/delve/tree/master/Documentation
+        run: |
+          echo "SSH Debug Session Started!"
+          # The help-message output contains ANSI color codes (\033[1;32m etc.)
+          # Use printf to properly display colored output
+          printf "%b\n%b\n" "$HELP_MESSAGE" "$EXTRA_HELP"
