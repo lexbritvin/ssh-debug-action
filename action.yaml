@@ -365,7 +365,7 @@ runs:
         # Generate comprehensive help message with beautiful ANSI styling
         HELP_MESSAGE=$(cat << HELP_EOF
         ╔══════════════════════════════════════════════════════════════════════════════════════════╗
-        ║                               🚀 SSH SESSION ACTIVE 🚀                                   ║
+                                       🚀 SSH SESSION ACTIVE 🚀                                   
         ╚══════════════════════════════════════════════════════════════════════════════════════════╝
         
         \033[1;32m┌─ 🎯 QUICK START\033[0m
@@ -376,7 +376,7 @@ runs:
         \033[1;31m┌─ 🛑 END SESSION\033[0m
         \033[1;31m│\033[0m   \033[1;33mCreate file:\033[0m \033[1;34m$WAIT_FILE\033[0m
         \033[1;31m│\033[0m   \033[1;36mBash:\033[0m       \033[1mcd "$WORKING_DIR" && touch "$WAIT_FILE"\033[0m
-        \033[1;31m│\033[0m   \033[1;35mPowerShell:\033[0m \033[1mSet-Location "$WORKING_DIR"; New-Item -ItemType File -Name '$WAIT_FILE' -Force\033[0m
+        \033[1;31m│\033[0m   \033[1;35mPowerShell:\033[0m \033[1mSet-Location "$WORKING_DIR"; New-Item -ItemType File -Name "$WAIT_FILE" -Force\033[0m
         \033[1;31m│\033[0m   \033[1;33mOR:\033[0m Cancel workflow in GitHub UI
         \033[1;31m└─\033[0m
         
@@ -391,7 +391,7 @@ runs:
         \033[1;35m└─\033[0m
         
         ╔══════════════════════════════════════════════════════════════════════════════════════════╗
-        ║                              💻 CONNECTION OPTIONS                                       ║
+                                      💻 CONNECTION OPTIONS 
         ╚══════════════════════════════════════════════════════════════════════════════════════════╝
         
         \033[1;34m🔹 1️⃣  Terminal Access\033[0m
@@ -410,25 +410,25 @@ runs:
             \033[1;36m•\033[0m Enter: \033[1;34m$SSH_CMD\033[0m
             \033[1;36m•\033[0m Open: \033[1;34m$WORKING_DIR\033[0m
         
-        \033[1;35m💡 Pro Tip:\033[0m Use VS Code's integrated terminal and port forwarding on the remote host.
+        \033[1;35m💡 Pro Tip:\033[0m Use VS Code\'s integrated terminal and port forwarding on the remote host.
         
         ╔══════════════════════════════════════════════════════════════════════════════════════════╗
-        ║                                🎉 Happy Coding! 💻✨                                  ║
+                                         🎉 Happy Coding! 💻✨
         ╚══════════════════════════════════════════════════════════════════════════════════════════╝
         HELP_EOF
         )
         
         # Export help message to outputs (GitHub Actions multiline format)
         {
-          echo 'help-message<<EOF'
-          printf '%b\n' "$HELP_MESSAGE"
-          echo 'EOF'
+          echo "help-message<<EOF"
+          echo "$HELP_MESSAGE"
+          echo "EOF"
         } >> $GITHUB_OUTPUT
         
         # Display help message if enabled
         if [[ "$INPUT_DISPLAY_HELP" == "true" ]]; then
           echo "📖 Displaying connection guide:"
-          printf '%b\n' "$HELP_MESSAGE"
+          printf "%b\n" "$HELP_MESSAGE"
         fi
         
         echo "✅ Connection guide generated successfully"

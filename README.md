@@ -287,7 +287,7 @@ jobs:
     HELP_MESSAGE: ${{ steps.ssh-session.outputs.help-message }}
     EXTRA_HELP: |
       ╔══════════════════════════════════════════════════════════════════════════════════════════╗
-      ║                              🐛 GO DEBUGGING WITH DELVE                                  ║
+                                    🐛 GO DEBUGGING WITH DELVE                                  
       ╚══════════════════════════════════════════════════════════════════════════════════════════╝
 
       \033[1;32m┌─ 🔄 PORT FORWARDING FOR DELVE\033[0m
@@ -312,6 +312,7 @@ jobs:
       \033[1;34m└─\033[0m
 
       \033[1;36m📚 Delve Documentation:\033[0m https://github.com/go-delve/delve/tree/master/Documentation
+  shell: bash
   run: |
     echo "SSH Debug Session Started!"
     # The help-message output contains ANSI color codes (\033[1;32m etc.)
@@ -441,4 +442,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-Built with ❤️ for the GitHub Actions community
+**⭐ Star this repo if you find it useful!**
+
+Made with ❤️ for the GitHub Actions community
