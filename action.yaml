@@ -196,11 +196,11 @@ runs:
       env:
         INPUT_SSH_HOST: "${{ inputs.ssh-server-host }}"
         INPUT_SSH_JUMP_FORWARD: "${{ inputs.ssh-jump-forward }}"
-        SSH_HOST: ${{ steps.ssh-server.outputs.hostname }}
-        SSH_PORT: ${{ steps.ssh-server.outputs.port }}
         SSH_JUMP_HOST: ${{ inputs.ssh-jump-host }}
         SSH_JUMP_PORT: ${{ inputs.ssh-jump-port }}
         SSH_JUMP_USER: ${{ inputs.ssh-jump-user }}
+        SSH_LOCAL_HOST: ${{ steps.ssh-server.outputs.hostname }}
+        SSH_LOCAL_PORT: ${{ steps.ssh-server.outputs.port }}
       run: |
         echo "⚙️ Configuring SSH connection parameters..."
         
@@ -220,10 +220,10 @@ runs:
         elif [[ "$INPUT_SSH_JUMP_FORWARD" == ":generate" ]]; then
           echo "🎯 Auto-generated jump host configuration"
           SSH_HOST="${SSH_HOST:-$GEN_SSH_ALIAS}"
-          SSH_REMOTE_FORWARDS="$SSH_HOST:$SSH_PORT:$SSH_HOST:$SSH_PORT"
+          SSH_REMOTE_FORWARDS="$SSH_HOST:$SSH_LOCAL_PORT:$SSH_LOCAL_HOST:$SSH_LOCAL_PORT"
         else
           echo "🔀 Custom jump host forwarding: $INPUT_SSH_JUMP_FORWARD"
-          SSH_REMOTE_FORWARDS="$INPUT_SSH_JUMP_FORWARD:$SSH_HOST:$SSH_PORT"
+          SSH_REMOTE_FORWARDS="$INPUT_SSH_JUMP_FORWARD:$SSH_LOCAL_HOST:$SSH_LOCAL_PORT"
         fi
         
         # Generate jump user if requested
