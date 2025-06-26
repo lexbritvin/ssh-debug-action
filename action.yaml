@@ -406,8 +406,9 @@ runs:
         
         \033[1;34m🔹 4️⃣  VS Code Remote Development\033[0m
             \033[1;36m•\033[0m Install \033[1;34m"Remote - SSH"\033[0m extension
-            \033[1;36m•\033[0m Open Command Palette ("Ctrl+Shift+P" or "Cmd+Shift+P" on MacOS) → \033[1;34m"Remote-SSH: Connect to Host..."\033[0m
+            \033[1;36m•\033[0m Open Command Palette ("Ctrl+Shift+P" or "Cmd+Shift+P" on MacOS) → \033[1;34m"Remote-SSH: Add New SSH Host..."\033[0m
             \033[1;36m•\033[0m Enter: \033[1;34m$SSH_CMD\033[0m
+            \033[1;36m•\033[0m Click \033[1;34m"Connect"[0m in the popup or using \033[1;34m"Remote-SSH: Connect to Host..."[0m
             \033[1;36m•\033[0m Open: \033[1;34m$WORKING_DIR\033[0m
         
         \033[1;35m💡 Pro Tip:\033[0m Use VS Code\'s integrated terminal and port forwarding on the remote host.
