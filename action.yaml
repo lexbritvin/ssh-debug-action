@@ -84,6 +84,22 @@ inputs:
     required: false
     default: ''
 
+  # Bore Tunneling Configuration
+  use-bore:
+    description: 'Use bore tunneling instead of SSH port forwarding for exposing the SSH server'
+    required: false
+    default: 'false'
+
+  bore-server:
+    description: 'Bore server address (e.g., bore.pub:2200). Required when use-bore is true'
+    required: false
+    default: 'bore.pub'
+
+  bore-secret:
+    description: 'Secret key for bore server authentication. Optional but recommended for security'
+    required: false
+    default: ''
+
   # Authentication & Security
   use-actor-ssh-keys:
     description: 'Whether to authorize the public SSH keys of the user triggering the workflow'
@@ -132,7 +148,7 @@ outputs:
   ssh-user:
     description: 'SSH username for authentication'
     value: ${{ steps.conn.outputs.ssh-user }}
-  
+
   # Jump Host Details
   ssh-jump-host:
     description: 'SSH jump host hostname (if used)'
@@ -143,7 +159,7 @@ outputs:
   ssh-jump-user:
     description: 'SSH jump host username (if used)'
     value: ${{ steps.conn.outputs.ssh-jump-user }}
-  
+
   # Security & Connection Info
   ssh-host-keys:
     description: 'SSH server host keys for client verification'
@@ -167,13 +183,14 @@ runs:
       env:
         INPUT_SSH_HOST: "${{ inputs.ssh-server-host }}"
         INPUT_SSH_JUMP_FORWARD: "${{ inputs.ssh-jump-forward }}"
+        INPUT_USE_BORE: "${{ inputs.use-bore }}"
       run: |
         echo "🔍 Validating SSH configuration parameters..."
         
         # Ensure at least one connection method is specified
-        if [[ -z "$INPUT_SSH_JUMP_FORWARD" && -z "$INPUT_SSH_HOST" ]]; then
-          echo "❌ Configuration Error: Must specify either 'ssh-server-host' or 'ssh-jump-forward'"
-          echo "💡 Tip: Use 'ssh-jump-forward: :generate' for auto-generated tunneling"
+        if [[ "$INPUT_USE_BORE" != "true" && -z "$INPUT_SSH_JUMP_FORWARD" && -z "$INPUT_SSH_HOST" ]]; then
+          echo "❌ Configuration Error: Must specify either 'ssh-server-host', 'ssh-jump-forward', or 'use-bore: true'"
+          echo "💡 Tip: Use 'ssh-jump-forward: :generate' for auto-generated tunneling or 'use-bore: true' for bore tunneling"
           exit 1
         fi
         
@@ -189,18 +206,31 @@ runs:
         authorized-keys: ${{ inputs.ssh-server-authorized-keys }}
         use-actor-ssh-keys: ${{ inputs.use-actor-ssh-keys }}
 
-    # Step 3: Connection Configuration
+    # Step 3: Bore Tunneling Setup (Conditional)
+    - name: 🕳️ Setup Bore Tunnel
+      id: bore
+      uses: lexbritvin/bore-action@main
+      if: ${{ inputs.use-bore == 'true' }}
+      with:
+        port: ${{ steps.ssh-server.outputs.port }}
+        server: ${{ inputs.bore-server }}
+        secret: ${{ inputs.bore-secret }}
+
+    # Step 4: Connection Configuration
     - name: ⚙️ Prepare SSH Connection
       id: ssh-conf
       shell: bash
       env:
         INPUT_SSH_HOST: "${{ inputs.ssh-server-host }}"
         INPUT_SSH_JUMP_FORWARD: "${{ inputs.ssh-jump-forward }}"
+        INPUT_USE_BORE: "${{ inputs.use-bore }}"
         SSH_JUMP_HOST: ${{ inputs.ssh-jump-host }}
         SSH_JUMP_PORT: ${{ inputs.ssh-jump-port }}
         SSH_JUMP_USER: ${{ inputs.ssh-jump-user }}
         SSH_LOCAL_HOST: ${{ steps.ssh-server.outputs.hostname }}
         SSH_LOCAL_PORT: ${{ steps.ssh-server.outputs.port }}
+        BORE_HOST: ${{ steps.bore.outputs.host }}
+        BORE_PORT: ${{ steps.bore.outputs.port }}
       run: |
         echo "⚙️ Configuring SSH connection parameters..."
         
@@ -209,10 +239,19 @@ runs:
         GEN_SSH_ALIAS="gh-runner-${{ github.job }}-${{ github.run_id }}-$RANDOM"
         GEN_SSH_USER="$GEN_SSH_ALIAS"
         
-        # Configure jump host settings based on ssh-jump-forward parameter
+        # Configure connection method based on input parameters
         SSH_HOST="$INPUT_SSH_HOST"
+        SSH_PORT="${{ steps.ssh-server.outputs.port }}"
         
-        if [[ -z "$INPUT_SSH_JUMP_FORWARD" ]]; then
+        if [[ "$INPUT_USE_BORE" == "true" ]]; then
+          echo "🕳️ Using bore tunneling for connection"
+          SSH_HOST="$BORE_HOST"
+          SSH_PORT="$BORE_PORT"
+          SSH_JUMP_HOST=""
+          SSH_JUMP_PORT=""
+          SSH_JUMP_USER=""
+          echo "🌐 Bore tunnel endpoint: $SSH_HOST:$SSH_PORT"
+        elif [[ -z "$INPUT_SSH_JUMP_FORWARD" ]]; then
           echo "🔗 Direct connection mode (no jump host)"
           SSH_JUMP_HOST=""
           SSH_JUMP_PORT=""
@@ -226,19 +265,22 @@ runs:
           SSH_REMOTE_FORWARDS="$INPUT_SSH_JUMP_FORWARD:$SSH_LOCAL_HOST:$SSH_LOCAL_PORT"
         fi
         
-        # Generate jump user if requested
-        if [[ "$SSH_JUMP_USER" == ":generate" ]]; then
+        # Generate jump user if requested (only for non-bore connections)
+        if [[ "$SSH_JUMP_USER" == ":generate" && "$INPUT_USE_BORE" != "true" ]]; then
           SSH_JUMP_USER="$GEN_SSH_USER"
           echo "👤 Generated jump user: $SSH_JUMP_USER"
         fi
         
-        # Set default host alias
-        SSH_HOST=${SSH_HOST:-localhost}
+        # Set default host alias (only if not using bore)
+        if [[ "$INPUT_USE_BORE" != "true" ]]; then
+          SSH_HOST=${SSH_HOST:-localhost}
+        fi
         echo "🏷️ Using hostname: $SSH_HOST"
 
         # Export configuration to GitHub outputs
         {
           echo "ssh-host=$SSH_HOST"
+          echo "ssh-port=$SSH_PORT"
           echo "ssh-jump-host=$SSH_JUMP_HOST"
           echo "ssh-jump-port=$SSH_JUMP_PORT"
           echo "ssh-jump-user=$SSH_JUMP_USER"
@@ -247,11 +289,11 @@ runs:
         
         echo "✅ SSH connection configuration completed"
 
-    # Step 4: Jump Host Tunneling (Conditional)
+    # Step 5: Jump Host Tunneling (Conditional)
     - name: 🌉 Setup Jump Host Tunnel
       id: tun
       uses: lexbritvin/ssh-action@v1
-      if: ${{ !!steps.ssh-conf.outputs.ssh-jump-host }}
+      if: ${{ !!steps.ssh-conf.outputs.ssh-jump-host && inputs.use-bore != 'true' }}
       with:
         host: ${{ steps.ssh-conf.outputs.ssh-jump-host }}
         port: ${{ steps.ssh-conf.outputs.ssh-jump-port }}
@@ -262,7 +304,7 @@ runs:
         extra-flags: "${{ inputs.ssh-jump-extra-flags }}"
         known-hosts: ${{ inputs.ssh-jump-host-keys }}
 
-    # Step 5: Connection Command Generation
+    # Step 6: Connection Command Generation
     - name: 🔗 Generate SSH Connection Command
       id: conn
       shell: bash
@@ -270,7 +312,7 @@ runs:
         ALLOCATED_HOST: ${{ steps.tun.outputs.allocated-host }}
         ALLOCATED_PORT: ${{ steps.tun.outputs.allocated-port }}
         SSH_HOST: "${{ steps.ssh-conf.outputs.ssh-host }}"
-        SSH_PORT: "${{ steps.ssh-server.outputs.port }}"
+        SSH_PORT: "${{ steps.ssh-conf.outputs.ssh-port }}"
         SSH_USER: "${{ steps.ssh-server.outputs.username }}"
         SSH_JUMP_HOST: "${{ steps.ssh-conf.outputs.ssh-jump-host }}"
         SSH_JUMP_PORT: "${{ steps.ssh-conf.outputs.ssh-jump-port }}"
@@ -322,7 +364,8 @@ runs:
         if [[ "$RUNNER_OS" == "Windows" ]]; then
           # Request TTY explicitly on Windows server
           SSH_CMD="$SSH_CMD -t powershell"
-          echo "🪟 Windows PowerShell terminal configured"
+        else
+          SSH_CMD="$SSH_CMD -t bash"
         fi
         
         echo "🎯 Final SSH command: $SSH_CMD"
@@ -341,7 +384,7 @@ runs:
         
         echo "✅ SSH connection command generated successfully"
 
-    # Step 6: Help Message Generation
+    # Step 7: Help Message Generation
     - name: 📖 Generate Connection Guide
       shell: bash
       id: help
@@ -408,7 +451,7 @@ runs:
             \033[1;36m•\033[0m Install \033[1;34m"Remote - SSH"\033[0m extension
             \033[1;36m•\033[0m Open Command Palette ("Ctrl+Shift+P" or "Cmd+Shift+P" on MacOS) → \033[1;34m"Remote-SSH: Add New SSH Host..."\033[0m
             \033[1;36m•\033[0m Enter: \033[1;34m$SSH_CMD\033[0m
-            \033[1;36m•\033[0m Click \033[1;34m"Connect"[0m in the popup or using \033[1;34m"Remote-SSH: Connect to Host..."[0m
+            \033[1;36m•\033[0m Click \033[1;34m"Connect"\033[0m in the popup or using \033[1;34m"Remote-SSH: Connect to Host..."\033[0m
             \033[1;36m•\033[0m Open: \033[1;34m$WORKING_DIR\033[0m
         
         \033[1;35m💡 Pro Tip:\033[0m Use VS Code\'s integrated terminal and port forwarding on the remote host.
@@ -434,7 +477,7 @@ runs:
         
         echo "✅ Connection guide generated successfully"
 
-    # Step 7: Session Wait Process
+    # Step 8: Session Wait Process
     - name: 🔄 Wait for Session Completion
       uses: lexbritvin/wait-action@v1
       if: ${{ inputs.wait-file != '' }}

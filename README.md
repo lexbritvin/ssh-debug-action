@@ -1,13 +1,12 @@
 # 🚀 SSH Session Action
 
-**Connect to GitHub runners (Windows, Linux & macOS) via SSH with jump host tunneling or direct connections (e.g.,
-Tailscale, Ngrok),
-and remote access capabilities**
+**Connect to GitHub runners (Windows, Linux & macOS) via SSH with jump host tunneling, bore tunneling, or direct
+connections (e.g., Tailscale, Ngrok), and remote access capabilities**
 
 *Greatly inspired by [mxschmitt/action-tmate](https://github.com/mxschmitt/action-tmate) but takes a completely
 different approach by installing an OpenSSH server on the runner, enabling standard SSH connections with full port
 forwarding, VS Code remote development support, and flexible connectivity through your own jump hosts, public free
-services (serveo.net, ssh-j.com, pinggy.io), or direct connections (e.g., Tailscale).*
+services (serveo.net, ssh-j.com, pinggy.io), bore tunneling, or direct connections (e.g., Tailscale).*
 
 ---
 
@@ -15,8 +14,9 @@ services (serveo.net, ssh-j.com, pinggy.io), or direct connections (e.g., Tailsc
 
 - 🖥️ **Multi-Platform Support** - Works on Linux, Windows, and macOS runners
 - 🔧 **OpenSSH Server** - Installs and configures OpenSSH server on the runner for standard SSH access
-- 🌉 **Flexible Connectivity** - Use your own jump hosts, public free services (serveo.net, ssh-j.com, pinggy.io), or
-  direct connections (e.g., Tailscale)
+- 🌉 **Flexible Connectivity** - Use your own jump hosts, public free services (serveo.net, ssh-j.com, pinggy.io), bore
+  tunneling, or direct connections (e.g., Tailscale)
+- 🕳️ **Bore Tunneling** - Built-in support for bore.pub and custom bore servers for easy access
 - 🔐 **Flexible Authentication** - Support for SSH keys, authorized keys, and GitHub actor keys
 - ⚡ **Detached Mode** - Run SSH sessions in background while continuing workflow
 - 🔄 **Session Management** - Configurable timeouts and termination controls
@@ -29,7 +29,7 @@ services (serveo.net, ssh-j.com, pinggy.io), or direct connections (e.g., Tailsc
 
 ## 🚀 Quick Start
 
-### Basic Usage
+### Basic Usage with Jump Host
 
 Set up the following environment variables in your GitHub repository settings (Settings → Secrets and variables →
 Actions → Variables):
@@ -62,8 +62,30 @@ jobs:
           ssh-jump-host-keys: ${{ env.SSH_JUMP_HOST_KEYS }}
           ssh-jump-forward: ${{ env.SSH_JUMP_FORWARD }}
           ssh-jump-private-key: ${{ secrets.SSH_PRIVATE_KEY }} # Add to GitHub Secrets (not needed for public hosts)
-          authorized-keys: ${{ secrets.SSH_PUBLIC_KEYS }}      # Add to GitHub Secrets
+          ssh-server-authorized-keys: ${{ secrets.SSH_PUBLIC_KEYS }}      # Add to GitHub Secrets
           use-actor-ssh-keys: 'true'
+```
+
+### Basic Usage with Bore Tunneling
+
+For the simplest setup, use bore tunneling which requires no additional configuration:
+
+```yaml
+name: Debug with Bore
+on: workflow_dispatch
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH Debug Session (Bore)
+        uses: lexbritvin/ssh-session-action@v1
+        with:
+          use-bore: 'true'
+          use-actor-ssh-keys: 'true'
+          ssh-server-authorized-keys: ${{ secrets.SSH_PUBLIC_KEYS }}
 ```
 
 Check the Runner output for connection instructions.
@@ -106,6 +128,32 @@ env:
     serveo.net ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC...
 ```
 
+### 🕳️ Bore Tunneling
+
+Bore tunneling provides an easy way to expose your SSH server without requiring jump host configuration.
+
+#### Default Bore Server (bore.pub)
+
+```yaml
+- name: Setup SSH with Bore (Default)
+  uses: lexbritvin/ssh-session-action@v1
+  with:
+    use-bore: 'true'
+    use-actor-ssh-keys: 'true'
+```
+
+#### Custom Bore Server with Authentication
+
+```yaml
+- name: Setup SSH with Custom Bore Server
+  uses: lexbritvin/ssh-session-action@v1
+  with:
+    use-bore: 'true'
+    bore-server: 'your-bore-server.com:2200'
+    bore-secret: ${{ secrets.BORE_SECRET }}
+    use-actor-ssh-keys: 'true'
+```
+
 ### 🎨 VS Code Remote Development
 
 #### Standard SSH Connection
@@ -146,11 +194,13 @@ New-Item -ItemType File -Name './end-session' -Force
 
 ## 🛡️ Security Considerations
 
-- 🚫 **Public Access**: Be cautious with public jump host services - they may expose your session to others
+- 🚫 **Public Access**: Be cautious with public jump host services and bore tunneling - they may expose your session to
+  others
 - 🔐 **Private Keys**: Always store SSH private keys in GitHub Secrets, never in code
 - 🔒 **Authorized Keys**: Limit authorized keys to trusted public keys only
 - ⏱️ **Session Timeouts**: Set appropriate timeout values to prevent long-running sessions
 - 🌐 **Network Access**: Consider using private networks like Tailscale for enhanced security
+- 🕳️ **Bore Security**: When using bore tunneling, consider using the `bore-secret` parameter for authentication
 - ⚠️ **Self-Hosted Runners**: Use with caution on self-hosted runners - this action is intended for GitHub-hosted
   runners that start in clean, isolated environments
 
@@ -180,12 +230,19 @@ New-Item -ItemType File -Name './end-session' -Force
 | `ssh-jump-host-keys`        | SSH host keys for server verification                          | `''`    | No       |
 | `ssh-jump-extra-flags`      | Additional SSH flags for jump host connection                  | `''`    | No       |
 
+### 🕳️ Bore Tunneling Configuration
+
+| Parameter     | Description                                                               | Default    | Required |
+|---------------|---------------------------------------------------------------------------|------------|----------|
+| `use-bore`    | Use bore tunneling instead of SSH port forwarding                         | `false`    | No       |
+| `bore-server` | Bore server address (e.g., bore.pub:2200). Required when use-bore is true | `bore.pub` | No       |
+| `bore-secret` | Secret key for bore server authentication. Optional but recommended       | `''`       | No       |
+
 ### 🔐 Authentication & Security
 
-| Parameter            | Description                                   | Default | Required |
-|----------------------|-----------------------------------------------|---------|----------|
-| `use-actor-ssh-keys` | Authorize the triggering user's SSH keys      | `false` | No       |
-| `authorized-keys`    | Additional authorized public keys (multiline) | `''`    | No       |
+| Parameter            | Description                              | Default | Required |
+|----------------------|------------------------------------------|---------|----------|
+| `use-actor-ssh-keys` | Authorize the triggering user's SSH keys | `false` | No       |
 
 ### ⏱️ Session Management
 
@@ -236,13 +293,8 @@ jobs:
         if: failure()
         uses: lexbritvin/ssh-session-action@v1
         with:
-          ssh-jump-host: ${{ env.SSH_JUMP_HOST }}
-          ssh-jump-port: ${{ env.SSH_JUMP_PORT }}
-          ssh-jump-user: ${{ env.SSH_JUMP_USER }}
-          ssh-jump-host-keys: ${{ env.SSH_JUMP_HOST_KEYS }}
-          ssh-jump-forward: ${{ env.SSH_JUMP_FORWARD }}
-          ssh-jump-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-          authorized-keys: ${{ secrets.SSH_PUBLIC_KEYS }}
+          use-bore: 'true'
+          ssh-server-authorized-keys: ${{ secrets.SSH_PUBLIC_KEYS }}
           use-actor-ssh-keys: 'true'
 ```
 
@@ -253,13 +305,8 @@ jobs:
   id: ssh-session
   uses: lexbritvin/ssh-session-action@v1
   with:
-    ssh-jump-host: ${{ env.SSH_JUMP_HOST }}
-    ssh-jump-port: ${{ env.SSH_JUMP_PORT }}
-    ssh-jump-user: ${{ env.SSH_JUMP_USER }}
-    ssh-jump-host-keys: ${{ env.SSH_JUMP_HOST_KEYS }}
-    ssh-jump-forward: ${{ env.SSH_JUMP_FORWARD }}
-    ssh-jump-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-    authorized-keys: ${{ secrets.SSH_PUBLIC_KEYS }}
+    use-bore: 'true'
+    ssh-server-authorized-keys: ${{ secrets.SSH_PUBLIC_KEYS }}
     use-actor-ssh-keys: 'true'
     display-help-message: 'false'
     detached: true
@@ -417,6 +464,7 @@ These are sensitive values that should be encrypted:
 
 - `SSH_PRIVATE_KEY` - Private key for jump host authentication
 - `SSH_PUBLIC_KEYS` - Authorized public keys for runner access
+- `BORE_SECRET` - Secret key for bore server authentication (if using bore)
 - `TS_OAUTH_CLIENT_ID` - Tailscale OAuth client ID (if using Tailscale)
 - `TS_OAUTH_SECRET` - Tailscale OAuth secret (if using Tailscale)
 
