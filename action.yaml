@@ -209,7 +209,7 @@ runs:
     # Step 3: Bore Tunneling Setup (Conditional)
     - name: 🕳️ Setup Bore Tunnel
       id: bore
-      uses: lexbritvin/bore-action@main
+      uses: lexbritvin/bore-action@v1
       if: ${{ inputs.use-bore == 'true' }}
       with:
         port: ${{ steps.ssh-server.outputs.port }}
